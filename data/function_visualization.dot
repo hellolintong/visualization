@@ -1,0 +1,36 @@
+digraph gph {
+encoder [label="package:common \l file:binary.go \l struct:encoder \l", shape="box"];bigEndian [label="package:common \l file:binary.go \l struct:bigEndian \l", shape="box"];
+Process [label="package:process \l file:process.go \l struct:Process \l", shape="box"];TimesStat [label="package:cpu \l file:cpu.go \l struct:TimesStat \l", shape="box"];SwapMemoryStat [label="package:mem \l file:mem.go \l struct:SwapMemoryStat \l", shape="box"];TemperatureStat [label="package:host \l file:host.go \l struct:TemperatureStat \l", shape="box"];InfoStat [label="package:host \l file:host.go \l struct:InfoStat \l", shape="box"];NumCtxSwitchesStat [label="package:process \l file:process.go \l struct:NumCtxSwitchesStat \l", shape="box"];MemoryMapsStat [label="package:process \l file:process_darwin.go \l struct:MemoryMapsStat \l", shape="box"];CgroupDockerStat [label="package:docker \l file:docker.go \l struct:CgroupDockerStat \l", shape="box"];InterfaceAddr [label="package:net \l file:net.go \l struct:InterfaceAddr \l", shape="box"];MiscStat [label="package:load \l file:load.go \l struct:MiscStat \l", shape="box"];IOCountersStat [label="package:disk \l file:disk.go \l struct:IOCountersStat \l", shape="box"];FakeInvoke [label="package:common \l file:common.go \l struct:FakeInvoke \l", shape="box"];process [label="package:net \l file:net_linux.go \l struct:process \l", shape="box"];
+mibUDP6RowOwnerPid [label="package:net \l file:net_windows.go \l struct:mibUDP6RowOwnerPid \l", shape="box"];
+Service [label="package:winservices \l file:winservices.go \l struct:Service \l", shape="box"];process->encoder;
+process->Process;
+mibUDP6RowOwnerPid->InfoStat;
+mibUDP6RowOwnerPid->NumCtxSwitchesStat;
+mibUDP6RowOwnerPid->MemoryMapsStat;
+mibUDP6RowOwnerPid->encoder;
+mibUDP6RowOwnerPid->TemperatureStat;
+mibUDP6RowOwnerPid->SwapMemoryStat;
+mibUDP6RowOwnerPid->IOCountersStat;
+mibUDP6RowOwnerPid->InterfaceAddr;
+mibUDP6RowOwnerPid->CgroupDockerStat;
+mibUDP6RowOwnerPid->bigEndian;
+mibUDP6RowOwnerPid->MiscStat;
+Service->Process;
+Service->encoder;
+encoder->bigEndian;
+bigEndian->encoder;
+Process->TimesStat;
+Process->encoder;
+Process->FakeInvoke;
+Process->SwapMemoryStat;
+Process->TemperatureStat;
+Process->InfoStat;
+Process->NumCtxSwitchesStat;
+Process->MemoryMapsStat;
+Process->CgroupDockerStat;
+Process->bigEndian;
+Process->InterfaceAddr;
+Process->MiscStat;
+Process->IOCountersStat;
+Process->process;
+}
