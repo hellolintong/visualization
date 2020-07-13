@@ -7,11 +7,11 @@ import (
 )
 
 type FunctionNode struct {
-	fileNode *FileNode
-	name   string
-	receiver string
-	callFunctions map[string]bool
-	body string
+	fileNode      *FileNode
+	name          string
+	receiver      string
+	calledStructs map[string]map[string]bool
+	body          string
 }
 
 func NewFunctionNode(fileNode *FileNode, name string, receiver string, body string) *FunctionNode {
@@ -21,11 +21,11 @@ func NewFunctionNode(fileNode *FileNode, name string, receiver string, body stri
 		receiver = strings.Trim(receiver, "*")
 	}
 	return &FunctionNode{
-		fileNode: fileNode,
-		name: name,
-		receiver: receiver,
-		body: body,
-		callFunctions: make(map[string]bool, 0),
+		fileNode:      fileNode,
+		name:          name,
+		receiver:      receiver,
+		body:          body,
+		calledStructs: make(map[string]map[string]bool, 0),
 	}
 }
 
@@ -36,49 +36,86 @@ func (s *FunctionNode) Merge(functionNames map[string][]string)  {
 			// 如果是自身模块的调动，就忽略掉
 			if receiver != s.receiver && s.receiver != "" && receiver != "" {
 				if strings.Contains(s.body, name+"(") {
-					s.callFunctions[receiver] = true
+					if _, ok := s.calledStructs[receiver]; ok == false {
+						s.calledStructs[receiver] = make(map[string]bool)
+					}
+					// receiver和function
+					s.calledStructs[receiver][name] = true
 				}
 			}
 		}
 	}
 }
 
+
 func (s *FunctionNode) DrawNode(content *bytes.Buffer, receiver map[string]bool){
 	// 如果没有函数引用，就不绘制
-	if len(s.callFunctions) == 0 {
+	if len(s.calledStructs) == 0 {
+		return
+	}
+
+	if s.receiver == "" {
 		return
 	}
 
 	// 如果存在接收者，则设置接收者，注意只设置一次
-	_ , ok := receiver[s.receiver]
-	if s.receiver != "" && ok == false {
+	if _, ok := receiver[s.receiver]; ok == false {
 		// 设置自己的node
 		content.WriteString("\n")
 		label := fmt.Sprintf("package:%s \\l file:%s \\l struct:%s \\l", s.fileNode.packageName, s.fileNode.fileNodeTagName, s.receiver)
 		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", s.receiver, label))
+		receiver[s.receiver] = true
 	}
+
+	// 设置函数节点
+	if _, ok := receiver[s.receiver + "_" + s.name]; ok == false {
+		// function
+		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", s.receiver + "_" + s.name, "function:" + s.name))
+		content.WriteString("\n")
+		receiver[s.receiver + "_" + s.name] = true
+	}
+
 	// 设置关联对象的node
-	for dest := range s.callFunctions {
-		if ok := receiver[dest]; ok == false {
-			label := s.fileNode.nodeManager.getReceiverLabel(dest)
+	for calledReceiver, _ := range s.calledStructs {
+		// 记录struct 节点
+		if _, ok := receiver[calledReceiver]; ok == false {
+			label := s.fileNode.nodeManager.getReceiverLabel(calledReceiver, false)
 			if label == "" {
-				label = dest
+				label = calledReceiver
 			}
-			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", dest, label))
+			// struct
+			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", calledReceiver, label))
+			content.WriteString("\n")
+			receiver[calledReceiver] = true
 		}
-		receiver[dest] = true
+
+		//// 记录函数节点
+		//for function := range functions {
+		//	if receiver[function + "_" + calledReceiver] == false {
+		//		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", calledReceiver + "_" + function, function))
+		//	}
+		//	receiver[function + "_" + calledReceiver] = true
+		//}
 	}
-	receiver[s.receiver] = true
 }
 
 func (s *FunctionNode) DrawRelation(content *bytes.Buffer, record map[string]bool){
-	if s.receiver != "" {
-		for dest := range s.callFunctions {
-			if record[s.receiver + "_" + dest] == false {
-				record[s.receiver+"_"+dest] = true
-				content.WriteString(fmt.Sprintf("%s->%s;", s.receiver, dest))
-				content.WriteString("\n")
-			}
+	if s.receiver == "" {
+		return
+	}
+	if len(s.calledStructs) == 0 {
+		return
+	}
+	if _, ok := record[s.receiver +"_"+s.name]; ok == false {
+		content.WriteString(fmt.Sprintf("%s->%s;", s.receiver, s.receiver + "_" + s.name))
+		content.WriteString("\n")
+		record[s.receiver + "_" + s.name] = true
+	}
+	for calledReceiver, _ := range s.calledStructs {
+		if record[s.receiver + "_" + s.name +"_" + calledReceiver] == false {
+			content.WriteString(fmt.Sprintf("%s->%s;", s.receiver + "_" + s.name, calledReceiver))
+			content.WriteString("\n")
+			record[s.receiver + "_" + s.name + "_" + calledReceiver] = true
 		}
 	}
 }

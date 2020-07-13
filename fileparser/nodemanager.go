@@ -20,16 +20,18 @@ type NodeManager struct {
 	functionNames map[string][]string
 }
 
-func (n *NodeManager) getReceiverLabel(receiver string) string {
+func (n *NodeManager) getReceiverLabel(receiver string, detail bool) string {
 	for _, fileNodes := range n.packages {
 		for _, fileNode := range fileNodes {
 			if structNode, ok := fileNode.structNodes[receiver]; ok == true {
-				return fmt.Sprintf("package:%s \\l file:%s \\l struct:%s \\l", structNode.fileNode.packageName, structNode.fileNode.fileNodeTagName, structNode.name)
+				return structNode.getStructLabel(detail)
 			}
 		}
 	}
 	return ""
 }
+
+
 
 func (n *NodeManager) drawStruct()  {
 	content := bytes.NewBuffer([]byte{})
@@ -172,12 +174,6 @@ func (n *NodeManager) mergeStruct ()  {
 	}
 
 	n.structTypes = temp2
-
-
-	sort.Strings(n.structTypes)
-	for i, j := 0, len(n.structTypes)-1; i < j; i, j = i+1, j-1 {
-		n.structTypes[i], n.structTypes[j] = n.structTypes[j], n.structTypes[i]
-	}
 
 	// 归并
 	for _, package_ := range n.packages {

@@ -76,7 +76,7 @@ func (f *FileNode) DrawStructRelation(content *bytes.Buffer, record map[string]b
 func (f *FileNode) checkFunctionComplex() bool {
 	emptyComplexNode := false
 	for _, structNode := range f.functionNodes {
-		if len(structNode.callFunctions) != 0 {
+		if len(structNode.calledStructs) != 0 {
 			emptyComplexNode = true
 			break
 		}
