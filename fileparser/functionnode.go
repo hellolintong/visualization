@@ -62,7 +62,7 @@ func (s *FunctionNode) DrawNode(content *bytes.Buffer, receiver map[string]bool)
 	if _, ok := receiver[s.receiver]; ok == false {
 		// 设置自己的node
 		content.WriteString("\n")
-		label := fmt.Sprintf("package:%s \\l file:%s \\l struct:%s \\l", s.fileNode.packageName, s.fileNode.fileNodeTagName, s.receiver)
+		label := fmt.Sprintf("package:%s \\l file:%s \\l struct:%s \\l ", s.fileNode.packageName, s.fileNode.fileNodeTagName, s.receiver)
 		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", s.receiver, label))
 		receiver[s.receiver] = true
 	}
