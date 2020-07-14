@@ -35,7 +35,7 @@ func (s *FunctionNode) Merge(functionNames map[string][]string)  {
 		for _, name := range names {
 			// 如果是自身模块的调动，就忽略掉
 			if receiver != s.receiver && s.receiver != "" && receiver != "" {
-				if strings.Contains(s.body, name+"(") {
+				if strings.Contains(s.body, "." + name+"(") {
 					if _, ok := s.calledStructs[receiver]; ok == false {
 						s.calledStructs[receiver] = make(map[string]bool)
 					}
@@ -79,7 +79,7 @@ func (s *FunctionNode) DrawNode(content *bytes.Buffer, receiver map[string]bool)
 	for calledReceiver, _ := range s.calledStructs {
 		// 记录struct 节点
 		if _, ok := receiver[calledReceiver]; ok == false {
-			label := s.fileNode.nodeManager.getReceiverLabel(calledReceiver, false)
+			label := s.fileNode.nodeManager.getFunctionReceiverLabel(calledReceiver)
 			if label == "" {
 				label = calledReceiver
 			}

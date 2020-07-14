@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strings"
 )
 
 
@@ -18,13 +19,22 @@ type NodeManager struct {
 	packages      map[string][]*FileNode
 	structTypes   []string
 	functionNames map[string][]string
+	detail bool
 }
 
-func (n *NodeManager) getReceiverLabel(receiver string, detail bool) string {
+func (n *NodeManager) getFunctionReceiverLabel(receiver string) string {
+	temp := n.detail
+	n.detail = false
+	result := n.getStructReceiverLabel(receiver)
+	n.detail = temp
+	return result
+}
+
+func (n *NodeManager) getStructReceiverLabel(receiver string) string {
 	for _, fileNodes := range n.packages {
 		for _, fileNode := range fileNodes {
 			if structNode, ok := fileNode.structNodes[receiver]; ok == true {
-				return structNode.getStructLabel(detail)
+				return structNode.getStructLabel(n.detail)
 			}
 		}
 	}
@@ -231,8 +241,13 @@ func (n *NodeManager) Inspect(file string) error {
 			start := typeExpr.Pos() - 1
 			end := typeExpr.End() - 1
 			typeInSource := string(content)[start:end]
+			// 去掉无用的空格
+			typeInSource = strings.ReplaceAll(typeInSource, " ", "")
 			if len(v.Names) > 0 {
 				structNode.fields[v.Names[0].Name] = typeInSource
+			} else {
+				// 匿名成员变量
+				structNode.fields[typeInSource] = typeInSource
 			}
 		}
 		fileParser.structNodes[structNode.name] = structNode

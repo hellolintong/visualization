@@ -6,10 +6,11 @@ type Parser interface {
 	Inspect(file string) error
 }
 
-func NewParser() Parser {
+func NewParser(detail bool) Parser {
 	return &NodeManager{
 		packages:      make(map[string][]*FileNode, 0),
 		structTypes:   make([]string, 0),
 		functionNames: make(map[string][]string, 0),
+		detail: detail,
 	}
 }

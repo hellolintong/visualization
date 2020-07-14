@@ -17,11 +17,9 @@ const (
 
 var (
 	path string
-	packageName string
-	filename string
+	detail bool
 	help bool
 )
-
 
 // 递归搜索，找出全部go文件, 并且忽略掉proto生成的文件
 func visit(path string, deep int) ([]string, error) {
@@ -56,6 +54,8 @@ func init()  {
 	flag.BoolVar(&help, "h", false, "获取帮助")
 	// 注意 `signal`。默认是 -s string，有了 `signal` 之后，变为 -s signal
 	flag.StringVar(&path, "path", ".", "设置分析的go目录")
+	//
+	flag.BoolVar(&detail, "detail", true, " 显示详细信息")
 }
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 	if err != nil {
 		os.Exit(-1)
 	}
-	nodeManager := fileparser.NewParser()
+	nodeManager := fileparser.NewParser(detail)
 	for _, file := range files {
 		err := nodeManager.Inspect(file)
 		if err != nil {
