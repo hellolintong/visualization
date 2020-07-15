@@ -86,6 +86,9 @@ func (f *FileNode) checkFunctionComplex() bool {
 
 // 只处理有复杂关联元素的节点
 func (f *FileNode) checkStructComplex() bool {
+	if f.nodeManager.allField {
+		return true
+	}
 	emptyComplexNode := false
 	for _, structNode := range f.structNodes {
 		if len(structNode.complexFields) != 0 {

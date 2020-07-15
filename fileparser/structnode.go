@@ -95,11 +95,11 @@ func (s *StructNode) getStructLabel(detail bool) string {
 }
 
 func (s *StructNode) DrawNode(content *bytes.Buffer, record map[string]bool){
-	if len(s.complexFields) == 0 {
+	if !s.fileNode.nodeManager.allField && len(s.complexFields) == 0 {
 		return
 	}
 	if _, ok := record[s.name]; ok == false {
-		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", s.name, s.getStructLabel(s.fileNode.nodeManager.detail)))
+		content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", s.name + "v", s.getStructLabel(s.fileNode.nodeManager.detail)))
 		content.WriteString("\n")
 		record[s.name] = true
 	}
@@ -109,7 +109,7 @@ func (s *StructNode) DrawNode(content *bytes.Buffer, record map[string]bool){
 			if label == "" {
 				label = dest
 			}
-			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", dest, label))
+			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", dest + "v", label))
 			content.WriteString("\n")
 			record[dest] = true
 		}
@@ -119,7 +119,7 @@ func (s *StructNode) DrawNode(content *bytes.Buffer, record map[string]bool){
 func (s *StructNode) DrawRelation(content *bytes.Buffer, record map[string]bool){
 	for dest, _ := range s.complexFields {
 		if _, ok := record[s.name + "_" + dest]; ok == false {
-			content.WriteString(fmt.Sprintf("%s->%s;", s.name, dest))
+			content.WriteString(fmt.Sprintf("%s->%s;", s.name + "v", dest + "v"))
 			content.WriteString("\n")
 		}
 		record[s.name + "_" + dest] = true

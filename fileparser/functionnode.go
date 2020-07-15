@@ -84,7 +84,7 @@ func (s *FunctionNode) DrawNode(content *bytes.Buffer, receiver map[string]bool)
 				label = calledReceiver
 			}
 			// struct
-			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", calledReceiver, label))
+			content.WriteString(fmt.Sprintf("%s [label=\"%s\", shape=\"box\"];", calledReceiver + "v", label))
 			content.WriteString("\n")
 			receiver[calledReceiver] = true
 		}
@@ -107,13 +107,13 @@ func (s *FunctionNode) DrawRelation(content *bytes.Buffer, record map[string]boo
 		return
 	}
 	if _, ok := record[s.receiver +"_"+s.name]; ok == false {
-		content.WriteString(fmt.Sprintf("%s->%s;", s.receiver, s.receiver + "_" + s.name))
+		content.WriteString(fmt.Sprintf("%s->%s [style=\"dashed\"];", s.receiver + "v", s.receiver + "_" + s.name))
 		content.WriteString("\n")
 		record[s.receiver + "_" + s.name] = true
 	}
 	for calledReceiver, _ := range s.calledStructs {
 		if record[s.receiver + "_" + s.name +"_" + calledReceiver] == false {
-			content.WriteString(fmt.Sprintf("%s->%s;", s.receiver + "_" + s.name, calledReceiver))
+			content.WriteString(fmt.Sprintf("%s->%s;", s.receiver + "_" + s.name, calledReceiver + "v"))
 			content.WriteString("\n")
 			record[s.receiver + "_" + s.name + "_" + calledReceiver] = true
 		}

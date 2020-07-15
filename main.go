@@ -18,6 +18,7 @@ const (
 var (
 	path string
 	detail bool
+	allField bool
 	help bool
 )
 
@@ -54,8 +55,9 @@ func init()  {
 	flag.BoolVar(&help, "h", false, "获取帮助")
 	// 注意 `signal`。默认是 -s string，有了 `signal` 之后，变为 -s signal
 	flag.StringVar(&path, "path", ".", "设置分析的go目录")
-	//
-	flag.BoolVar(&detail, "detail", true, " 显示详细信息")
+	flag.BoolVar(&detail, "detail", true, "显示详细信息")
+
+	flag.BoolVar(&allField, "all", true, "显示域的全部字段")
 }
 
 func main() {
@@ -69,7 +71,7 @@ func main() {
 	if err != nil {
 		os.Exit(-1)
 	}
-	nodeManager := fileparser.NewParser(detail)
+	nodeManager := fileparser.NewParser(detail, allField)
 	for _, file := range files {
 		err := nodeManager.Inspect(file)
 		if err != nil {

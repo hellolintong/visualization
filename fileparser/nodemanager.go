@@ -20,6 +20,7 @@ type NodeManager struct {
 	structTypes   []string
 	functionNames map[string][]string
 	detail bool
+	allField bool
 }
 
 func (n *NodeManager) getFunctionReceiverLabel(receiver string) string {
