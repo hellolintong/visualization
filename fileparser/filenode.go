@@ -15,6 +15,7 @@ type FileNode struct {
 	packageName string
 	structNodes map[string]*StructNode
 	functionNodes map[string]*FunctionNode
+	interfaceNodes map[string]*InterfaceNode
 }
 
 func (f *FileNode) MergeFunction(functionNames map[string][]string)  {
@@ -23,9 +24,9 @@ func (f *FileNode) MergeFunction(functionNames map[string][]string)  {
 	}
 }
 
-func (f *FileNode) MergeStruct(structTypes []string)  {
+func (f *FileNode) MergeStruct(structTypes []string, interfaceNames map[string]bool)  {
 	for _, structNode := range f.structNodes {
-		structNode.Merge(structTypes)
+		structNode.Merge(structTypes, interfaceNames)
 	}
 }
 
@@ -51,6 +52,12 @@ func (f *FileNode) DrawStructNode(content *bytes.Buffer, record map[string]bool)
 	}
 }
 
+func (f *FileNode) DrawInterfaceNode(content *bytes.Buffer, record map[string]bool){
+	// struct元素
+	for _, interfaceNode := range f.interfaceNodes {
+		interfaceNode.DrawNode(content, record)
+	}
+}
 
 func (f *FileNode) DrawFunctionRelation(content *bytes.Buffer, record map[string]bool){
 	if !f.checkFunctionComplex() {
@@ -69,6 +76,12 @@ func (f *FileNode) DrawStructRelation(content *bytes.Buffer, record map[string]b
 
 	for _, structNode := range f.structNodes {
 		structNode.DrawRelation(content, record)
+	}
+}
+
+func (f *FileNode) DrawInterfaceRelation(content *bytes.Buffer, record map[string]bool){
+	for _, interfaceNode := range f.interfaceNodes {
+		interfaceNode.DrawRelation(content, record)
 	}
 }
 
@@ -108,6 +121,7 @@ func NewFileNode(nodeManager *NodeManager, file string, packageName string) *Fil
 		fileNodeTagName: filepath.Base(file),
 		structNodes: make(map[string]*StructNode),
 		functionNodes: make(map[string]*FunctionNode),
+		interfaceNodes: make(map[string]*InterfaceNode),
 	}
 }
 

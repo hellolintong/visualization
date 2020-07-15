@@ -19,6 +19,7 @@ type NodeManager struct {
 	packages      map[string][]*FileNode
 	structTypes   []string
 	functionNames map[string][]string
+	interfaceNames map[string]bool
 	detail bool
 	allField bool
 }
@@ -48,8 +49,7 @@ func (n *NodeManager) drawStruct()  {
 	content := bytes.NewBuffer([]byte{})
 	content.WriteString("digraph gph {")
 
-
-
+	// 绘制struct节点
 	record := map[string]bool{}
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
@@ -57,11 +57,27 @@ func (n *NodeManager) drawStruct()  {
 		}
 	}
 
-	// 避免反复设置关系
+	// 绘制interface节点
+	record = map[string]bool{}
+	for _, package_ := range n.packages {
+		for _, filenode := range package_ {
+			filenode.DrawInterfaceNode(content, record)
+		}
+	}
+
+	// 绘制struct节点关系
 	record = map[string]bool{}
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
 			filenode.DrawStructRelation(content, record)
+		}
+	}
+
+	// 绘制interface节点
+	record = map[string]bool{}
+	for _, package_ := range n.packages {
+		for _, filenode := range package_ {
+			filenode.DrawInterfaceRelation(content, record)
 		}
 	}
 
@@ -128,9 +144,20 @@ func (n *NodeManager) Draw()  {
 	n.drawFunction()
 }
 
+func (n *NodeManager) mergeInterfaceImplement() {
+	// package
+	for _, package_ := range n.packages {
+		// file
+		for _, filenode := range package_ {
+			// interface
+			for _, interfaceNode := range filenode.interfaceNodes {
+				interfaceNode.mergeImplement(n.functionNames)
+			}
+		}
+	}
+}
 
 func (n *NodeManager) mergeFunction ()  {
-
 	// package
 	for _, package_ := range n.packages {
 		// file
@@ -159,7 +186,6 @@ func (n *NodeManager) mergeFunction ()  {
 			filenode.MergeFunction(n.functionNames)
 		}
 	}
-
 }
 
 func (n *NodeManager) mergeStruct ()  {
@@ -186,13 +212,23 @@ func (n *NodeManager) mergeStruct ()  {
 
 	n.structTypes = temp2
 
-	// 归并
+	// package
 	for _, package_ := range n.packages {
+		// file
 		for _, filenode := range package_ {
-			filenode.MergeStruct(n.structTypes)
+			// functions
+			for _, interfaceNode := range filenode.interfaceNodes {
+				n.interfaceNames[interfaceNode.name] = true
+			}
 		}
 	}
 
+	// 归并
+	for _, package_ := range n.packages {
+		for _, filenode := range package_ {
+			filenode.MergeStruct(n.structTypes, n.interfaceNames)
+		}
+	}
 }
 
 func (n *NodeManager) Merge() {
@@ -201,6 +237,9 @@ func (n *NodeManager) Merge() {
 
 	// 输出函数依赖
 	n.mergeFunction()
+
+	//  查看方法的实现
+	n.mergeInterfaceImplement()
 }
 
 
@@ -255,6 +294,37 @@ func (n *NodeManager) Inspect(file string) error {
 		return true
 	}
 
+	interfaceParser := func(n ast.Node) bool {
+		t, ok := n.(*ast.TypeSpec)
+		if !ok {
+			return true
+		}
+
+		if t.Type == nil {
+			return true
+		}
+
+		x, ok := t.Type.(*ast.InterfaceType)
+		if !ok {
+			return true
+		}
+
+		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name)
+		if !x.Incomplete {
+			functions := strings.Split(string(content[x.Methods.Opening:x.Methods.Closing]), "\n")
+			for _, function := range functions {
+				function = strings.Trim(function, "\t")
+				if strings.Contains(function, "(") && strings.Contains(function, ")") {
+					name := strings.Split(function, "(")[0]
+					interfaceNode.methods[name] = function
+				}
+			}
+		}
+		fileParser.interfaceNodes[t.Name.Name] = interfaceNode
+
+		return true
+	}
+
 	functionParser := func(n ast.Node) bool {
 		x, ok := n.(*ast.FuncDecl)
 		if !ok {
@@ -270,9 +340,13 @@ func (n *NodeManager) Inspect(file string) error {
 		return true
 	}
 
+	ast.Inspect(f, interfaceParser)
+
 	ast.Inspect(f, structParser)
 
 	ast.Inspect(f, functionParser)
+
+
 
 	if _, ok := n.packages[f.Name.Name]; !ok {
 		n.packages[f.Name.Name] = make([]*FileNode, 0)

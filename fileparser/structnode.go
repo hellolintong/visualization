@@ -22,7 +22,7 @@ func NewStructNode(fileNode *FileNode, name string) *StructNode {
 	}
 }
 
-func (s *StructNode) Merge(structTypes []string)  {
+func (s *StructNode) Merge(structTypes []string, interfaceNames map[string]bool)  {
 	// 对于每个field，查看项目中的全部struct，这里只是做简单include判断，如果包括就认为是对应的类型
 	for _, t := range s.fields {
 		finalReceiver := ""
@@ -46,7 +46,21 @@ func (s *StructNode) Merge(structTypes []string)  {
 		uint，int 32或者是64位
 		uintptr 一个足够表示指针的无符号整数
 		 */
-		for _, structType := range structTypes {
+
+		// 先去掉包前缀
+		if strings.Contains(t, ".") {
+			elems := strings.Split(t, ".")
+			t = elems[len(elems) - 1]
+		}
+
+		// 把接口和结构体合并进行判断
+		allTypes := make([]string, 0)
+		allTypes = append(allTypes, structTypes...)
+		for interfaceName := range interfaceNames {
+			allTypes = append(allTypes, interfaceName)
+		}
+
+		for _, structType := range allTypes {
 			// 基础类型
 			if t == "string" || t == "int" || t == "uint" || t == "uint8" || t == "uint16" || t == "uint32" || t == "uint64" ||
 				t == "int8" || t == "int16" || t == "int32" || t == "int64" || t == "float32" ||
@@ -71,6 +85,7 @@ func (s *StructNode) Merge(structTypes []string)  {
 				}
 			}
 		}
+
 		if finalReceiver != "" {
 			s.complexFields[finalReceiver] = true
 		}
