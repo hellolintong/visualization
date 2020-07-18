@@ -8,29 +8,29 @@ import (
 import "fmt"
 
 type FileNode struct {
-	nodeManager *NodeManager
-	file        string
-	fileNodeName string
+	nodeManager     *NodeManager
+	file            string
+	fileNodeName    string
 	fileNodeTagName string
-	packageName string
-	structNodes map[string]*StructNode
-	functionNodes map[string]*FunctionNode
-	interfaceNodes map[string]*InterfaceNode
+	packageName     string
+	structNodes     map[string]*StructNode
+	functionNodes   map[string]*FunctionNode
+	interfaceNodes  map[string]*InterfaceNode
 }
 
-func (f *FileNode) MergeFunction(functionNames map[string][]string)  {
+func (f *FileNode) MergeFunction(structTypes map[string]map[string]bool, interfaceNames map[string]map[string]bool) {
 	for _, functionNode := range f.functionNodes {
-		functionNode.Merge(functionNames)
+		functionNode.Merge(structTypes, interfaceNames)
 	}
 }
 
-func (f *FileNode) MergeStruct(structTypes []string, interfaceNames map[string]bool)  {
+func (f *FileNode) MergeStruct(structTypes map[string]map[string]bool, interfaceNames map[string]map[string]bool) {
 	for _, structNode := range f.structNodes {
 		structNode.Merge(structTypes, interfaceNames)
 	}
 }
 
-func (f *FileNode) DrawFunctionNode(content *bytes.Buffer, receiver map[string]bool){
+func (f *FileNode) DrawFunctionNode(content *bytes.Buffer, receiver map[string]bool) {
 	if !f.checkFunctionComplex() {
 		return
 	}
@@ -41,7 +41,7 @@ func (f *FileNode) DrawFunctionNode(content *bytes.Buffer, receiver map[string]b
 	}
 }
 
-func (f *FileNode) DrawStructNode(content *bytes.Buffer, record map[string]bool){
+func (f *FileNode) DrawStructNode(content *bytes.Buffer, record map[string]bool) {
 	// 检查文件下的所有struct，如果都没有引用其他的struct，就直接跳过，避免图文件过大
 	if !f.checkStructComplex() {
 		return
@@ -52,14 +52,14 @@ func (f *FileNode) DrawStructNode(content *bytes.Buffer, record map[string]bool)
 	}
 }
 
-func (f *FileNode) DrawInterfaceNode(content *bytes.Buffer, record map[string]bool){
+func (f *FileNode) DrawInterfaceNode(content *bytes.Buffer, record map[string]bool) {
 	// struct元素
 	for _, interfaceNode := range f.interfaceNodes {
 		interfaceNode.DrawNode(content, record)
 	}
 }
 
-func (f *FileNode) DrawFunctionRelation(content *bytes.Buffer, record map[string]bool){
+func (f *FileNode) DrawFunctionRelation(content *bytes.Buffer, record map[string]bool) {
 	if !f.checkFunctionComplex() {
 		return
 	}
@@ -69,7 +69,7 @@ func (f *FileNode) DrawFunctionRelation(content *bytes.Buffer, record map[string
 	}
 }
 
-func (f *FileNode) DrawStructRelation(content *bytes.Buffer, record map[string]bool){
+func (f *FileNode) DrawStructRelation(content *bytes.Buffer, record map[string]bool) {
 	if !f.checkStructComplex() {
 		return
 	}
@@ -79,7 +79,7 @@ func (f *FileNode) DrawStructRelation(content *bytes.Buffer, record map[string]b
 	}
 }
 
-func (f *FileNode) DrawInterfaceRelation(content *bytes.Buffer, record map[string]bool){
+func (f *FileNode) DrawInterfaceRelation(content *bytes.Buffer, record map[string]bool) {
 	for _, interfaceNode := range f.interfaceNodes {
 		interfaceNode.DrawRelation(content, record)
 	}
@@ -114,14 +114,14 @@ func (f *FileNode) checkStructComplex() bool {
 
 func NewFileNode(nodeManager *NodeManager, file string, packageName string) *FileNode {
 	return &FileNode{
-		nodeManager: nodeManager,
-		packageName: packageName,
-		file:        file,
-		fileNodeName: strings.ReplaceAll(filepath.Base(file), ".", "_"),
+		nodeManager:     nodeManager,
+		packageName:     packageName,
+		file:            file,
+		fileNodeName:    strings.ReplaceAll(filepath.Base(file), ".", "_"),
 		fileNodeTagName: filepath.Base(file),
-		structNodes: make(map[string]*StructNode),
-		functionNodes: make(map[string]*FunctionNode),
-		interfaceNodes: make(map[string]*InterfaceNode),
+		structNodes:     make(map[string]*StructNode),
+		functionNodes:   make(map[string]*FunctionNode),
+		interfaceNodes:  make(map[string]*InterfaceNode),
 	}
 }
 

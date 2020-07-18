@@ -16,10 +16,12 @@ const (
 )
 
 var (
-	path string
-	detail bool
+	path     string
+	detail   bool
 	allField bool
-	help bool
+	help     bool
+	packages string
+	structs  string
 )
 
 // 递归搜索，找出全部go文件, 并且忽略掉proto生成的文件
@@ -50,7 +52,7 @@ func visit(path string, deep int) ([]string, error) {
 	return files, nil
 }
 
-func init()  {
+func init() {
 
 	flag.BoolVar(&help, "h", false, "获取帮助")
 	// 注意 `signal`。默认是 -s string，有了 `signal` 之后，变为 -s signal
@@ -58,6 +60,8 @@ func init()  {
 	flag.BoolVar(&detail, "detail", true, "显示详细信息")
 
 	flag.BoolVar(&allField, "all", true, "显示域的全部字段")
+	flag.StringVar(&packages, "packages", "", "设置需要分析的模块")
+	flag.StringVar(&structs, "structs", "", "设置需要分析的struct")
 }
 
 func main() {
@@ -71,7 +75,17 @@ func main() {
 	if err != nil {
 		os.Exit(-1)
 	}
-	nodeManager := fileparser.NewParser(detail, allField)
+	pointedPackages := make([]string, 0)
+	if packages != "" {
+		pointedPackages = strings.Split(packages, ",")
+	}
+
+	pointedStructs := make([]string, 0)
+	if structs != "" {
+		pointedStructs = strings.Split(structs, ",")
+	}
+
+	nodeManager := fileparser.NewParser(detail, allField, pointedPackages, pointedStructs)
 	for _, file := range files {
 		err := nodeManager.Inspect(file)
 		if err != nil {
@@ -83,5 +97,3 @@ func main() {
 	nodeManager.Merge()
 	nodeManager.Draw()
 }
-
-

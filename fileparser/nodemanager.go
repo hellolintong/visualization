@@ -10,18 +10,18 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"sort"
 	"strings"
 )
 
-
 type NodeManager struct {
-	packages      map[string][]*FileNode
-	structTypes   []string
-	functionNames map[string][]string
-	interfaceNames map[string]bool
-	detail bool
-	allField bool
+	packages        map[string][]*FileNode
+	pointedPackages map[string]bool
+	pointedStructs  map[string]bool
+	structTypes     map[string]map[string]bool
+	functionNames   map[string]map[string]bool
+	interfaceNames  map[string]map[string]bool
+	detail          bool
+	allField        bool
 }
 
 func (n *NodeManager) getFunctionReceiverLabel(receiver string) string {
@@ -43,9 +43,7 @@ func (n *NodeManager) getStructReceiverLabel(receiver string) string {
 	return ""
 }
 
-
-
-func (n *NodeManager) drawStruct()  {
+func (n *NodeManager) drawStruct() {
 	content := bytes.NewBuffer([]byte{})
 	content.WriteString("digraph gph {")
 
@@ -66,7 +64,6 @@ func (n *NodeManager) drawStruct()  {
 	}
 
 	// 绘制struct节点关系
-	record = map[string]bool{}
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
 			filenode.DrawStructRelation(content, record)
@@ -74,7 +71,6 @@ func (n *NodeManager) drawStruct()  {
 	}
 
 	// 绘制interface节点
-	record = map[string]bool{}
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
 			filenode.DrawInterfaceRelation(content, record)
@@ -88,10 +84,10 @@ func (n *NodeManager) drawStruct()  {
 		log.Println(err)
 	}
 
-	os.MkdirAll(path + "/data/", 0755)
+	os.MkdirAll(path+"/data/", 0755)
 
-	if err := ioutil.WriteFile(path + "/data/struct_visualization.dot", content.Bytes(), 0644); err == nil {
-		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf( "dot %s/data/struct_visualization.dot -o %s/data/struct_visualization.png -Tpng", path, path)).Run(); err == nil {
+	if err := ioutil.WriteFile(path+"/data/struct_visualization.dot", content.Bytes(), 0644); err == nil {
+		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/data/struct_visualization.dot -o %s/data/struct_visualization.png -Tpng", path, path)).Run(); err == nil {
 			log.Println("draw success!")
 		} else {
 			log.Printf("draw visualization.dot fail, error:%s", err.Error())
@@ -126,7 +122,7 @@ func (n *NodeManager) drawFunction() {
 		log.Println(err)
 	}
 
-	os.MkdirAll(path + "/data/", 0755)
+	os.MkdirAll(path+"/data/", 0755)
 
 	if err := ioutil.WriteFile(path+"/data/function_visualization.dot", content.Bytes(), 0644); err == nil {
 		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/data/function_visualization.dot -o %s/data/function_visualization.png -Tpng", path, path)).Run(); err == nil {
@@ -139,12 +135,13 @@ func (n *NodeManager) drawFunction() {
 	}
 }
 
-func (n *NodeManager) Draw()  {
+func (n *NodeManager) Draw() {
 	n.drawStruct()
 	n.drawFunction()
 }
 
 func (n *NodeManager) mergeInterfaceImplement() {
+
 	// package
 	for _, package_ := range n.packages {
 		// file
@@ -157,60 +154,30 @@ func (n *NodeManager) mergeInterfaceImplement() {
 	}
 }
 
-func (n *NodeManager) mergeFunction ()  {
-	// package
-	for _, package_ := range n.packages {
-		// file
-		for _, filenode := range package_ {
-			// functions
-			for _, functionNode := range filenode.functionNodes {
-				if _, ok := n.functionNames[functionNode.receiver]; ok == false {
-					n.functionNames[functionNode.receiver] = make([]string, 0)
-				}
-				n.functionNames[functionNode.receiver] = append(n.functionNames[functionNode.receiver], functionNode.name)
-			}
-		}
-	}
-
-	for packageName, names := range n.functionNames {
-		sort.Strings(names)
-		for i, j := 0, len(names)-1; i < j; i, j = i+1, j-1 {
-			names[i], names[j] = names[j], names[i]
-		}
-		n.functionNames[packageName] = names
-	}
-
+func (n *NodeManager) mergeFunction() {
 	// 归并
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
-			filenode.MergeFunction(n.functionNames)
+			filenode.MergeFunction(n.structTypes, n.interfaceNames)
 		}
 	}
 }
 
-func (n *NodeManager) mergeStruct ()  {
+func (n *NodeManager) mergeStruct() {
 	// package
 	for _, package_ := range n.packages {
 		// file
 		for _, filenode := range package_ {
 			// structs
 			for _, structNode := range filenode.structNodes {
-				n.structTypes = append(n.structTypes, structNode.name)
+				if _, ok := n.structTypes[filenode.packageName]; ok == false {
+					n.structTypes[filenode.packageName] = make(map[string]bool, 0)
+				}
+				n.structTypes[filenode.packageName][structNode.name] = true
 			}
 		}
 	}
 
-	// 去重
-	temp := map[string]bool{}
-	temp2 := make([]string,0)
-	for _, type_ := range n.structTypes {
-		if _, ok := temp[type_]; ok == false {
-			temp2 = append(temp2, type_)
-			temp[type_] = true
-		}
-	}
-
-	n.structTypes = temp2
 
 	// package
 	for _, package_ := range n.packages {
@@ -218,7 +185,10 @@ func (n *NodeManager) mergeStruct ()  {
 		for _, filenode := range package_ {
 			// functions
 			for _, interfaceNode := range filenode.interfaceNodes {
-				n.interfaceNames[interfaceNode.name] = true
+				if _, ok := n.interfaceNames[filenode.packageName]; ok == false {
+					n.interfaceNames[filenode.packageName] = make(map[string]bool, 0)
+				}
+				n.interfaceNames[filenode.packageName][interfaceNode.name] = true
 			}
 		}
 	}
@@ -242,7 +212,6 @@ func (n *NodeManager) Merge() {
 	n.mergeInterfaceImplement()
 }
 
-
 func (n *NodeManager) Inspect(file string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -251,12 +220,16 @@ func (n *NodeManager) Inspect(file string) error {
 		return err
 	}
 
+	if len(n.pointedPackages) != 0 {
+		if _, ok := n.pointedPackages[f.Name.Name]; ok == false {
+			return nil
+		}
+	}
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Printf("can't read file:%s content, error:%s", file, err.Error())
 		return err
 	}
-
 
 	fileParser := NewFileNode(n, file, f.Name.Name)
 
@@ -275,21 +248,23 @@ func (n *NodeManager) Inspect(file string) error {
 			return true
 		}
 
-		structNode := NewStructNode(fileParser, t.Name.Name)
+		fields := make(map[string]string, 0)
 		for _, v := range x.Fields.List {
 			typeExpr := v.Type
 			start := typeExpr.Pos() - 1
 			end := typeExpr.End() - 1
 			typeInSource := string(content)[start:end]
 			// 去掉无用的空格
-			typeInSource = strings.ReplaceAll(typeInSource, " ", "")
+			typeInSource = strings.Trim(typeInSource, " ")
 			if len(v.Names) > 0 {
-				structNode.fields[v.Names[0].Name] = typeInSource
+				fields[v.Names[0].Name] = typeInSource
 			} else {
 				// 匿名成员变量
-				structNode.fields[typeInSource] = typeInSource
+				fields[typeInSource] = typeInSource
 			}
 		}
+		structNode := NewStructNode(fileParser, t.Name.Name, fields)
+
 		fileParser.structNodes[structNode.name] = structNode
 		return true
 	}
@@ -309,17 +284,18 @@ func (n *NodeManager) Inspect(file string) error {
 			return true
 		}
 
-		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name)
+		methods := make(map[string]string, 0)
 		if !x.Incomplete {
 			functions := strings.Split(string(content[x.Methods.Opening:x.Methods.Closing]), "\n")
 			for _, function := range functions {
 				function = strings.Trim(function, "\t")
 				if strings.Contains(function, "(") && strings.Contains(function, ")") {
 					name := strings.Split(function, "(")[0]
-					interfaceNode.methods[name] = function
+					methods[name] = function
 				}
 			}
 		}
+		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, methods)
 		fileParser.interfaceNodes[t.Name.Name] = interfaceNode
 
 		return true
@@ -332,10 +308,33 @@ func (n *NodeManager) Inspect(file string) error {
 		}
 		receiver := ""
 		if x.Recv != nil {
-			receiver = string(content)[int(x.Recv.Opening) : int(x.Recv.Closing) - 1]
+			receiver = string(content)[int(x.Recv.Opening) : int(x.Recv.Closing)-1]
 		}
-		body := string(content)[int(x.Body.Lbrace) - 1: int(x.Body.Rbrace)]
-		functionNode := NewFunctionNode(fileParser, x.Name.Name, receiver, body)
+
+		parameters := make([]string, 0)
+		returns := make([]string, 0)
+
+		// 设置对应的参数和返回值
+		if x.Type.Params != nil && x.Type.Params.List != nil {
+			for _, param := range x.Type.Params.List {
+				paramType := string(content)[int(param.Type.Pos())-1 : int(param.Type.End())-1]
+				paramType = strings.Trim(paramType, " ")
+				paramType = strings.TrimLeft(paramType, "*")
+				parameters = append(parameters, paramType)
+			}
+		}
+
+		if x.Type.Results != nil && x.Type.Results.List != nil {
+			for _, result := range x.Type.Results.List {
+				resultType := string(content)[int(result.Type.Pos())-1 : int(result.Type.End())]
+				resultType = strings.Trim(resultType, " ")
+				resultType = strings.TrimLeft(resultType, "*")
+				returns = append(returns, resultType)
+			}
+		}
+
+		body := string(content)[int(x.Body.Lbrace)-1 : int(x.Body.Rbrace)]
+		functionNode := NewFunctionNode(fileParser, x.Name.Name, receiver, body, parameters, returns)
 		fileParser.functionNodes[functionNode.name] = functionNode
 		return true
 	}
@@ -345,8 +344,6 @@ func (n *NodeManager) Inspect(file string) error {
 	ast.Inspect(f, structParser)
 
 	ast.Inspect(f, functionParser)
-
-
 
 	if _, ok := n.packages[f.Name.Name]; !ok {
 		n.packages[f.Name.Name] = make([]*FileNode, 0)

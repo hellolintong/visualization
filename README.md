@@ -15,12 +15,26 @@ visualization是基于golang提供的ast模块，将项目中struct间的依赖�
 其中xxx是需要分析的项目目录，程序会自动在当前的data目录下生成两个png文件,分别是struct_visualization.png和
 function_visualization.png。
 
-例如我现在分析[gopsutil](https://github.com/shirou/gopsutil) 这个项目的struct之间的依赖关系。
+例如我现在分析[go-redis](https://github.com/go-redis/redis) 这个项目的pool模块的struct之间的依赖关系。
 ```shell script
-./main --path  /Users/lintong/go/src/github.com/shirou/gopsutil
+./main --path  /Users/lintong/go/src/github.com/go-redis/redis --packages pool
 ```
 生成的效果如为:
 ![结构体成员依赖图](data/struct_visualization.png)
 
 ![结构体调用关系图](data/function_visualization.png)
 
+* 命令执行的参数如下 
+```
+  -all
+    	显示域的全部字段 (default true)
+  -detail
+    	显示详细信息 (default true)
+  -h	获取帮助
+  -packages string
+    	设置需要分析的模块
+  -path string
+    	设置分析的go目录 (default ".")
+  -structs string
+    	设置需要分析的struct
+```
