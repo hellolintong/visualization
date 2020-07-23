@@ -44,7 +44,11 @@ func (s *StructNode) getStructLabel(detail bool) string {
 		label := fmt.Sprintf("struct: %s\\l\\n----\\lpackage: %s\\l\\nfile: %s\\l----\\l%s", s.name, s.fileNode.packageName, s.fileNode.fileNodeTagName, buffer.String())
 		return label
 	} else {
-		label := fmt.Sprintf("struct: %s\\l\\n----\\lpackage: %s\\l\\nfile: %s", s.name, s.fileNode.packageName, s.fileNode.fileNodeTagName)
+		buffer := bytes.NewBuffer([]byte{})
+		for _, t := range s.complexFields {
+			buffer.WriteString(fmt.Sprintf("%s\\l\\n", t))
+		}
+		label := fmt.Sprintf("struct: %s\\l\\n----\\lpackage: %s\\l\\nfile: %s\\l----\\l%s", s.name, s.fileNode.packageName, s.fileNode.fileNodeTagName, buffer.String())
 		return label
 	}
 }
