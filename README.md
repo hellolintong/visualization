@@ -17,7 +17,7 @@ function_visualization.png。
 
 例如我现在分析[go-redis](https://github.com/go-redis/redis) 这个项目的pool模块的struct之间的依赖关系。
 ```shell script
-./main --path  /Users/lintong/go/src/github.com/go-redis/redis --packages pool
+./main --path /Users/lintong/go/src/github.com/go-redis/redis --packages redis --detail=false --all=false
 ```
 生成的效果如为:
 ![结构体成员依赖图](data/struct_visualization.png)
