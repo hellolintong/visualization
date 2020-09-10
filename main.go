@@ -1,7 +1,6 @@
-package main
+package visualization
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,15 +12,6 @@ import (
 
 const (
 	maxDeep = 100
-)
-
-var (
-	path     string
-	detail   bool
-	allField bool
-	help     bool
-	packages string
-	structs  string
 )
 
 // 递归搜索，找出全部go文件, 并且忽略掉proto生成的文件
@@ -52,40 +42,14 @@ func visit(path string, deep int) ([]string, error) {
 	return files, nil
 }
 
-func init() {
 
-	flag.BoolVar(&help, "h", false, "获取帮助")
-	// 注意 `signal`。默认是 -s string，有了 `signal` 之后，变为 -s signal
-	flag.StringVar(&path, "path", ".", "设置分析的go目录")
-	flag.BoolVar(&detail, "detail", true, "显示详细信息")
-
-	flag.BoolVar(&allField, "all", true, "显示域的全部字段")
-	flag.StringVar(&packages, "packages", "", "设置需要分析的模块")
-	flag.StringVar(&structs, "structs", "", "设置需要分析的struct")
-}
-
-func main() {
-	flag.Parse()
-
-	if help {
-		flag.Usage()
-	}
-
+func NewParser(path string) (fileparser.Parser, error) {
 	files, err := visit(path, 0)
 	if err != nil {
-		os.Exit(-1)
-	}
-	pointedPackages := make([]string, 0)
-	if packages != "" {
-		pointedPackages = strings.Split(packages, ",")
+		return nil, err
 	}
 
-	pointedStructs := make([]string, 0)
-	if structs != "" {
-		pointedStructs = strings.Split(structs, ",")
-	}
-
-	nodeManager := fileparser.NewParser(detail, allField, pointedPackages, pointedStructs)
+	nodeManager := fileparser.NewParser(path)
 	for _, file := range files {
 		err := nodeManager.Inspect(file)
 		if err != nil {
@@ -95,5 +59,6 @@ func main() {
 	}
 
 	nodeManager.Merge()
-	nodeManager.Draw()
+	return nodeManager, nil
 }
+

@@ -6,30 +6,23 @@ import (
 
 type Parser interface {
 	Merge()
-	Draw()
+	DrawFunction(baseName string, count int)
+	DrawStruct(baseName string, count int)
 	Inspect(file string) error
+	Relation() map[string][]string
 }
 
-func NewParser(detail bool, allField bool, packages []string, structs []string) Parser {
-	pointedPackages := map[string]bool{}
-	for _, packageName := range packages {
-		pointedPackages[packageName] = true
-	}
-
-	pointedStructs := map[string]bool{}
-	for _, structName := range structs {
-		pointedStructs[structName] = true
-	}
+func NewParser(projectPath string) Parser {
 
 	return &NodeManager{
+		projectPath: projectPath,
 		packages:        make(map[string][]*FileNode, 0),
-		structTypes:     make(map[string]map[string]bool, 0),
+		structTypes:     make(map[string]map[string]*StructNode, 0),
 		functionNames:   make(map[string]map[string]bool, 0),
-		interfaceNames:  make(map[string]map[string]bool, 0),
-		pointedPackages: pointedPackages,
-		pointedStructs:  pointedStructs,
-		detail:          detail,
-		allField:        allField,
+		interfaceNames:  make(map[string]map[string]*InterfaceNode, 0),
+		allFunctions: make(map[string][]*FunctionNode, 0),
+		allStructs: make(map[string]*StructNode, 0),
+		knownModuleFunction: make(map[string]bool, 0),
 	}
 }
 
@@ -70,10 +63,10 @@ func getStructType(fieldType string, structType string) string {
 	return ""
 }
 
-func typeCompare(structTypes map[string]map[string]bool, interfaceNames map[string]map[string]bool, fieldType string) (string, string) {
+func typeCompare(structTypes map[string]map[string]*StructNode, interfaceNames map[string]map[string]*InterfaceNode, fieldType string) (*StructNode, *InterfaceNode) {
 
 	// 先去掉包前缀
-	packages := make([]string, 0)
+	var packageName string
 	if strings.Contains(fieldType, ".") {
 		var subFieldType string
 		subFieldType = fieldType
@@ -84,15 +77,13 @@ func typeCompare(structTypes map[string]map[string]bool, interfaceNames map[stri
 				for i := index; i >= 0; i-- {
 					 if subFieldType[i] == ' ' || subFieldType[i] == '*' || subFieldType[i] == ']' {
 					 	found = true
-						packageName := subFieldType[i+1 : index]
-						packages = append(packages, packageName)
+						packageName = subFieldType[i+1 : index]
 						subFieldType = subFieldType[index+1:]
 						break
 					}
 				}
 				if !found {
-					packageName := subFieldType[:index]
-					packages = append(packages, packageName)
+					packageName = subFieldType[:index]
 					subFieldType = subFieldType[index+1:]
 				}
 			} else {
@@ -101,73 +92,55 @@ func typeCompare(structTypes map[string]map[string]bool, interfaceNames map[stri
 		}
 	}
 
-	finalType := ""
-	keyFinalType := ""
+	var finalStructTypeStr string
+
+	var finalStructType *StructNode
+
+	var finalInterfaceType *InterfaceNode
 
 	// 如果有包名，就先以包为标准
-	if len(packages) != 0  {
-		// 针对每个包
-		for _, packageName := range packages {
-			if _, ok := structTypes[packageName]; ok == true {
-				for structType, _ := range structTypes[packageName] {
-					tmp := getStructType(fieldType, packageName + "." + structType)
-					if len(tmp) > len(finalType) {
-						finalType = tmp
-					}
-					tmp = getKeyStructType(fieldType, packageName + "." + structType)
-					if len(tmp) > len(keyFinalType) {
-							keyFinalType = tmp
-					}
-				}
-			}
-
-			if _, ok := interfaceNames[packageName]; ok == true {
-				for structType, _ := range interfaceNames[packageName] {
-					tmp := getStructType(fieldType, packageName + "." + structType)
-					if len(tmp) > len(finalType) {
-						finalType = tmp
-					}
-					tmp = getKeyStructType(fieldType, packageName + "." + structType)
-					if len(tmp) > len(keyFinalType) {
-						keyFinalType = tmp
-					}
+	if len(packageName) != 0  {
+		if _, ok := structTypes[packageName]; ok == true {
+			// 找到最合适的匹配点
+			for structType, value := range structTypes[packageName] {
+				tmp := getStructType(fieldType, packageName + "." + structType)
+				if len(tmp) > len(finalStructTypeStr) {
+					finalStructTypeStr = tmp
+					finalStructType = value
 				}
 			}
 		}
-	}  else {
-		for _, types := range structTypes {
-			for structType, _ := range types {
-				tmp := getStructType(fieldType, structType)
-				if len(tmp) > len(finalType) {
-					finalType = tmp
+
+		if _, ok := interfaceNames[packageName]; ok == true {
+			for structType, value := range interfaceNames[packageName] {
+				tmp := getStructType(fieldType, packageName + "." + structType)
+				if len(tmp) > len(finalStructTypeStr) {
+					finalStructTypeStr = tmp
+					finalInterfaceType = value
 				}
-				tmp = getKeyStructType(fieldType, structType)
-				if len(tmp) > len(keyFinalType) {
-					keyFinalType = tmp
+			}
+		}
+	} else {
+		for _, types := range structTypes {
+			for structType, value := range types {
+				tmp := getStructType(fieldType, structType)
+				if len(tmp) > len(finalStructTypeStr) {
+					finalStructTypeStr = tmp
+					finalStructType = value
 				}
 			}
 		}
 
 		for _, types := range interfaceNames {
-			for structType, _ := range types {
+			for structType, value := range types {
 				tmp := getStructType(fieldType, structType)
-				if len(tmp) > len(finalType) {
-					finalType = tmp
-				}
-				tmp = getKeyStructType(fieldType, structType)
-				if len(tmp) > len(keyFinalType) {
-					keyFinalType = tmp
+				if len(tmp) > len(finalStructTypeStr) {
+					finalStructTypeStr = tmp
+					finalInterfaceType = value
 				}
 			}
 		}
 	}
-	if strings.Contains(keyFinalType, ".") {
-		elems := strings.Split(keyFinalType, ".")
-		keyFinalType = elems[len(elems) - 1]
-	}
-	if strings.Contains(finalType, ".") {
-		elems := strings.Split(finalType, ".")
-		finalType = elems[len(elems) - 1]
-	}
-	return keyFinalType, finalType
+
+	return finalStructType, finalInterfaceType
 }

@@ -10,84 +10,76 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
 
 type NodeManager struct {
+	projectPath string
 	packages        map[string][]*FileNode
-	pointedPackages map[string]bool
-	pointedStructs  map[string]bool
-	structTypes     map[string]map[string]bool
+	structTypes     map[string]map[string]*StructNode
 	functionNames   map[string]map[string]bool
-	interfaceNames  map[string]map[string]bool
-	detail          bool
-	allField        bool
+	interfaceNames  map[string]map[string]*InterfaceNode
+	allFunctions    map[string][]*FunctionNode
+	allStructs    	map[string]*StructNode
+	knownModuleFunction map[string]bool
 }
 
-func (n *NodeManager) getFunctionReceiverLabel(receiver string) string {
-	temp := n.detail
-	n.detail = false
-	result := n.getStructReceiverLabel(receiver)
-	n.detail = temp
-	return result
+func (n *NodeManager) Relation() map[string][]string {
+	relation := make(map[string][]string, 0)
+	relation["functions"] = make([]string, 0)
+	for _, nodes := range n.allFunctions {
+		for _, node := range nodes {
+			relation["functions"] = append(relation["functions"], strings.Trim(node.getIdentity(), "\""))
+		}
+	}
+	sort.Strings(relation["functions"])
+
+	relation["structs"] = make([]string, 0)
+	for _, node := range n.allStructs {
+			relation["structs"] = append(relation["structs"], strings.Trim(node.getIdentity(), "\""))
+	}
+	sort.Strings(relation["structs"])
+	return relation
 }
 
 func (n *NodeManager) getStructReceiverLabel(receiver string) string {
 	for _, fileNodes := range n.packages {
 		for _, fileNode := range fileNodes {
 			if structNode, ok := fileNode.structNodes[receiver]; ok == true {
-				return structNode.getStructLabel(n.detail)
+				return structNode.getStructLabel()
 			}
 		}
 	}
 	return ""
 }
 
-func (n *NodeManager) drawStruct() {
+func (n *NodeManager) DrawStruct(baseStruct string, count int) {
+
+	structNode, ok := n.allStructs[baseStruct]
+	if !ok {
+		return
+	}
+
 	content := bytes.NewBuffer([]byte{})
 	content.WriteString("digraph gph {")
 
-	// 绘制struct节点
-	record := map[string]bool{}
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawStructNode(content, record)
-		}
-	}
+	// 绘制base struct节点
+	record := make(map[string]bool, 0)
+	structNode.DrawNode(content, record, count)
 
-	// 绘制interface节点
-	record = map[string]bool{}
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawInterfaceNode(content, record)
-		}
-	}
+	record = make(map[string]bool, 0)
+	structNode.DrawRelation(content, record, count)
 
-	// 绘制struct节点关系
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawStructRelation(content, record)
-		}
-	}
-
-	// 绘制interface节点
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawInterfaceRelation(content, record)
-		}
-	}
 
 	content.WriteString("}")
 
-	path, err := os.Getwd()
-	if err != nil {
-		log.Println(err)
-	}
-
-	os.MkdirAll(path+"/data/", 0755)
-
-	if err := ioutil.WriteFile(path+"/data/struct_visualization.dot", content.Bytes(), 0644); err == nil {
-		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/data/struct_visualization.dot -o %s/data/struct_visualization.png -Tpng", path, path)).Run(); err == nil {
+	os.MkdirAll(n.getBaseDir(), 0755)
+	baseStruct = strings.Trim(baseStruct, "\"")
+	baseStruct = strings.ReplaceAll(baseStruct, "/", "_")
+	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/struct_%s.dot", baseStruct), content.Bytes(), 0644); err == nil {
+		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/struct_%s.dot -o %s/struct_%s.png -Tpng", n.getBaseDir(), baseStruct, n.getBaseDir(), baseStruct)).Run(); err == nil {
 			log.Println("draw success!")
 		} else {
 			log.Printf("draw visualization.dot fail, error:%s", err.Error())
@@ -97,35 +89,57 @@ func (n *NodeManager) drawStruct() {
 	}
 }
 
-func (n *NodeManager) drawFunction() {
-	content := bytes.NewBuffer([]byte{})
-	content.WriteString("digraph gph {")
-
-	receiver := make(map[string]bool, 0)
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawFunctionNode(content, receiver)
-		}
-	}
-
-	record := map[string]bool{}
-	for _, package_ := range n.packages {
-		for _, filenode := range package_ {
-			filenode.DrawFunctionRelation(content, record)
-		}
-	}
-
-	content.WriteString("}")
-
+func (n *NodeManager) getBaseDir() string {
 	path, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
+		return "."
+	}
+	projectName := filepath.Base(n.projectPath)
+	baseDir := 	path+"/resource/"+projectName
+	return baseDir
+}
+
+func (n *NodeManager) DrawFunction(baseFunction string, count int) {
+	elems := strings.Split(baseFunction, "/")
+	if len(elems) != 3 {
+		return
+	}
+	packageName, receiver, name := elems[0], elems[1], elems[2]
+	functionNodes, ok := n.allFunctions[name]
+	if !ok {
+		return
 	}
 
-	os.MkdirAll(path+"/data/", 0755)
+	var node *FunctionNode
+	for _, functionNode := range functionNodes {
+		if functionNode.fileNode.packageName == packageName && functionNode.receiver == receiver {
+			node = functionNode
+			break
+		}
+	}
 
-	if err := ioutil.WriteFile(path+"/data/function_visualization.dot", content.Bytes(), 0644); err == nil {
-		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/data/function_visualization.dot -o %s/data/function_visualization.png -Tpng", path, path)).Run(); err == nil {
+	content := bytes.NewBuffer([]byte{})
+	content.WriteString("digraph gph {")
+
+	if node == nil {
+		return
+	}
+
+	record := make(map[string]bool, 0)
+	node.DrawNode(content, record, count)
+
+	record = make(map[string]bool, 0)
+	node.DrawRelation(content, record, count)
+
+	content.WriteString("}")
+
+	os.MkdirAll(n.getBaseDir(), 0755)
+
+	baseFunction = strings.ReplaceAll(baseFunction, "/", "_")
+	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/function_%s.dot", baseFunction), content.Bytes(), 0644); err == nil {
+		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/function_%s.dot -o %s/function_%s.png -Tpng", n.getBaseDir(), baseFunction,
+			n.getBaseDir(), baseFunction)).Run(); err == nil {
 			log.Println("draw success!")
 		} else {
 			log.Printf("draw visualization.dot fail, error:%s", err.Error())
@@ -133,11 +147,6 @@ func (n *NodeManager) drawFunction() {
 	} else {
 		log.Printf("write visualization.dot fail, error:%s", err.Error())
 	}
-}
-
-func (n *NodeManager) Draw() {
-	n.drawStruct()
-	n.drawFunction()
 }
 
 func (n *NodeManager) mergeInterfaceImplement() {
@@ -158,7 +167,7 @@ func (n *NodeManager) mergeFunction() {
 	// 归并
 	for _, package_ := range n.packages {
 		for _, filenode := range package_ {
-			filenode.MergeFunction(n.structTypes, n.interfaceNames)
+			filenode.MergeFunction()
 		}
 	}
 }
@@ -171,9 +180,9 @@ func (n *NodeManager) mergeStruct() {
 			// structs
 			for _, structNode := range filenode.structNodes {
 				if _, ok := n.structTypes[filenode.packageName]; ok == false {
-					n.structTypes[filenode.packageName] = make(map[string]bool, 0)
+					n.structTypes[filenode.packageName] = make(map[string]*StructNode, 0)
 				}
-				n.structTypes[filenode.packageName][structNode.name] = true
+				n.structTypes[filenode.packageName][structNode.name] = structNode
 			}
 		}
 	}
@@ -186,9 +195,9 @@ func (n *NodeManager) mergeStruct() {
 			// functions
 			for _, interfaceNode := range filenode.interfaceNodes {
 				if _, ok := n.interfaceNames[filenode.packageName]; ok == false {
-					n.interfaceNames[filenode.packageName] = make(map[string]bool, 0)
+					n.interfaceNames[filenode.packageName] = make(map[string]*InterfaceNode, 0)
 				}
-				n.interfaceNames[filenode.packageName][interfaceNode.name] = true
+				n.interfaceNames[filenode.packageName][interfaceNode.name] = interfaceNode
 			}
 		}
 	}
@@ -199,6 +208,15 @@ func (n *NodeManager) mergeStruct() {
 			filenode.MergeStruct(n.structTypes, n.interfaceNames)
 		}
 	}
+
+	for _, package_ := range n.packages {
+		for _, filenode := range package_ {
+			for _, structNode := range filenode.structNodes {
+				n.allStructs[structNode.getIdentity()] = structNode
+			}
+		}
+	}
+
 }
 
 func (n *NodeManager) Merge() {
@@ -212,6 +230,7 @@ func (n *NodeManager) Merge() {
 	n.mergeInterfaceImplement()
 }
 
+// 解析源文件，解析出对应的结构体，接口，函数
 func (n *NodeManager) Inspect(file string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
@@ -220,11 +239,6 @@ func (n *NodeManager) Inspect(file string) error {
 		return err
 	}
 
-	if len(n.pointedPackages) != 0 {
-		if _, ok := n.pointedPackages[f.Name.Name]; ok == false {
-			return nil
-		}
-	}
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Printf("can't read file:%s content, error:%s", file, err.Error())
@@ -257,6 +271,7 @@ func (n *NodeManager) Inspect(file string) error {
 			// 去掉无用的空格
 			typeInSource = strings.Trim(typeInSource, " ")
 			if len(v.Names) > 0 {
+				// name -> type
 				fields[v.Names[0].Name] = typeInSource
 			} else {
 				// 匿名成员变量
@@ -298,6 +313,14 @@ func (n *NodeManager) Inspect(file string) error {
 		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, methods)
 		fileParser.interfaceNodes[t.Name.Name] = interfaceNode
 
+		for name, _ := range methods {
+			functionNode := NewFunctionNode(fileParser, name, t.Name.Name, "", []string{},  []string{})
+			if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
+				fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
+			}
+			fileParser.functionNodes[functionNode.name] = append(fileParser.functionNodes[functionNode.name], functionNode)
+		}
+
 		return true
 	}
 
@@ -307,10 +330,15 @@ func (n *NodeManager) Inspect(file string) error {
 			return true
 		}
 		receiver := ""
+
 		if x.Recv != nil {
 			receiver = string(content)[int(x.Recv.Opening) : int(x.Recv.Closing)-1]
+			elems := strings.Split(receiver, " ")
+			if len(elems) == 2 {
+				receiver = elems[1]
+				receiver = strings.TrimLeft(receiver, "*")
+			}
 		}
-
 		parameters := make([]string, 0)
 		returns := make([]string, 0)
 
@@ -335,7 +363,30 @@ func (n *NodeManager) Inspect(file string) error {
 
 		body := string(content)[int(x.Body.Lbrace)-1 : int(x.Body.Rbrace)]
 		functionNode := NewFunctionNode(fileParser, x.Name.Name, receiver, body, parameters, returns)
-		fileParser.functionNodes[functionNode.name] = functionNode
+		if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
+			fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
+		}
+		fileParser.functionNodes[functionNode.name] = append(fileParser.functionNodes[functionNode.name], functionNode)
+		return true
+	}
+
+	importParser := func(n ast.Node) bool {
+		x, ok := n.(*ast.ImportSpec)
+		if !ok {
+			return true
+		}
+		if x.Name != nil {
+			fileParser.importers[x.Name.Name] = x.Path.Value
+		} else {
+			elems := strings.Split("/", x.Path.Value)
+			var name string
+			if len(elems) == 1 {
+				name = x.Path.Value
+			} else {
+				name = elems[len(elems) - 1]
+			}
+			fileParser.importers[name] = x.Path.Value
+		}
 		return true
 	}
 
@@ -344,6 +395,8 @@ func (n *NodeManager) Inspect(file string) error {
 	ast.Inspect(f, structParser)
 
 	ast.Inspect(f, functionParser)
+
+	ast.Inspect(f, importParser)
 
 	if _, ok := n.packages[f.Name.Name]; !ok {
 		n.packages[f.Name.Name] = make([]*FileNode, 0)

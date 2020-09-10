@@ -1,0 +1,6 @@
+digraph gph {"sqlx/NamedStmt" [label="struct: NamedStmt\l\n----\lpackage: sqlx\l\nfile: named.go\l----\lStmt: *Stmt\l\nParams: []string\l\nQueryString: string\l\n", shape="box"];
+"sqlx/Stmt" [label="struct: Stmt\l\n----\lpackage: sqlx\l\nfile: sqlx.go\l----\lunsafe: bool\l\nMapper: *reflectx.Mapper\l\n*sql.Stmt: *sql.Stmt\l\n", shape="box"];
+"reflectx/Mapper" [label="struct: Mapper\l\n----\lpackage: reflectx\l\nfile: reflect.go\l----\lcache: map[reflect.Type]*StructMap\l\ntagName: string\l\ntagMapFunc: func(string) string\l\nmapFunc: func(string) string\l\nmutex: sync.Mutex\l\n", shape="box"];
+"sqlx/NamedStmt" -> "sqlx/Stmt"
+"sqlx/Stmt" -> "reflectx/Mapper"
+}
