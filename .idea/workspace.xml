@@ -2,23 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="666203a0-2c1c-400c-badd-628d3c7b82d9" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/data/struct_visualization_sqlx_NamedStmt.dot" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/struct_visualization_sqlx_NamedStmt.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/vis" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/.struct_visualization.dot.swp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/function_visualization.dot" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/function_visualization.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/struct_visualization.dot" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/struct_visualization.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/filenode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/filenode.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/functionnode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/functionnode.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/interfacenode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/interfacenode.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/nodemanager.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/nodemanager.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/parser.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/parser.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fileparser/structnode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/structnode.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main" beforeDir="false" afterPath="$PROJECT_DIR$/main" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
