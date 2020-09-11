@@ -46,6 +46,7 @@ func (s *FunctionNode) getIdentity() string {
 }
 
 func (s *FunctionNode) GetCodeSnippet() map[string]string {
+	s.Deduce()
 	result := make(map[string]string, 0)
 	result[s.getIdentity()] = s.content
 
@@ -65,10 +66,16 @@ func (s *FunctionNode) GetCodeSnippet() map[string]string {
 func (s *FunctionNode) Deduce() {
 	nodeManager := s.fileNode.nodeManager
 	lines := strings.Split(s.content, "\n")
+	// 跳过自己
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		// 跳过注释
 		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
+			continue
+		}
+
+		// 跳过自己
+		if strings.Contains(line, s.name+"(") {
 			continue
 		}
 

@@ -27,8 +27,6 @@ type NodeManager struct {
 }
 
 func (n *NodeManager) GetStructCodeSnippet(baseName string) map[string]string {
-	fmt.Printf("%+v\n", n.allStructs)
-	fmt.Printf("%s\n", baseName)
 	structNode, ok := n.allStructs[baseName]
 	if !ok {
 		return map[string]string{}
