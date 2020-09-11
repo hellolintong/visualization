@@ -7,29 +7,29 @@ import (
 )
 
 type FunctionNode struct {
-	fileNode      *FileNode
-	name          string
-	receiver      string
-	parameters    []string
-	returns       []string
-	callee 		  map[string]*FunctionNode
-	body          string
+	fileNode   *FileNode
+	name       string
+	receiver   string
+	parameters []string
+	returns    []string
+	callee     map[string]*FunctionNode
+	content    string
 }
 
-func NewFunctionNode(fileNode *FileNode, name string, receiver string, body string, params []string, returns []string) *FunctionNode {
+func NewFunctionNode(fileNode *FileNode, name string, receiver string, content string, params []string, returns []string) *FunctionNode {
 	if receiver != "" {
 		elem := strings.Split(receiver, " ")
 		receiver = elem[len(elem)-1]
 		receiver = strings.Trim(receiver, "*")
 	}
 	return &FunctionNode{
-		fileNode:      fileNode,
-		name:          name,
-		receiver:      receiver,
-		body:          body,
-		callee: make(map[string]*FunctionNode, 0),
-		parameters:    params,
-		returns:       returns,
+		fileNode:   fileNode,
+		name:       name,
+		receiver:   receiver,
+		content:    content,
+		callee:     make(map[string]*FunctionNode, 0),
+		parameters: params,
+		returns:    returns,
 	}
 }
 
@@ -45,9 +45,26 @@ func (s *FunctionNode) getIdentity() string {
 	return "\""+ s.fileNode.packageName + "/" + s.receiver + "/" + s.name + "\""
 }
 
+func (s *FunctionNode) GetCodeSnippet() map[string]string {
+	result := make(map[string]string, 0)
+	result[s.getIdentity()] = s.content
+
+	for _, callee := range s.callee {
+		if _, ok := result[callee.getIdentity()]; ok == false {
+			result[callee.getIdentity()] = callee.content
+			tmp := callee.GetCodeSnippet()
+			for k, v := range tmp {
+				result[k] = v
+			}
+		}
+	}
+
+	return result
+}
+
 func (s *FunctionNode) Deduce() {
 	nodeManager := s.fileNode.nodeManager
-	lines := strings.Split(s.body, "\n")
+	lines := strings.Split(s.content, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		// 跳过注释
@@ -148,7 +165,7 @@ func (s *FunctionNode) DrawRelation(content *bytes.Buffer, record map[string]boo
 
 	count--
 
-	record[s.getIdentity()] = true;
+	record[s.getIdentity()] = true
 	if count > 0 {
 		for _, callee := range s.callee {
 			if record[callee.getIdentity()] == false {

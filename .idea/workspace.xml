@@ -2,7 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="666203a0-2c1c-400c-badd-628d3c7b82d9" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fileparser/functionnode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/functionnode.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fileparser/interfacenode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/interfacenode.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fileparser/nodemanager.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/nodemanager.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fileparser/parser.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/parser.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fileparser/structnode.go" beforeDir="false" afterPath="$PROJECT_DIR$/fileparser/structnode.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -202,23 +207,28 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="DlvLineBreakpoint">
           <url>file://$PROJECT_DIR$/fileparser/nodemanager.go</url>
-          <line>378</line>
+          <line>408</line>
           <option name="timeStamp" value="87" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DlvLineBreakpoint">
           <url>file://$PROJECT_DIR$/fileparser/parser.go</url>
-          <line>131</line>
+          <line>120</line>
           <option name="timeStamp" value="108" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DlvLineBreakpoint">
           <url>file://$PROJECT_DIR$/fileparser/parser.go</url>
-          <line>126</line>
+          <line>115</line>
           <option name="timeStamp" value="109" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="DlvLineBreakpoint">
           <url>file://$PROJECT_DIR$/fileparser/structnode.go</url>
-          <line>35</line>
+          <line>37</line>
           <option name="timeStamp" value="110" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/fileparser/nodemanager.go</url>
+          <line>310</line>
+          <option name="timeStamp" value="112" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -8,6 +8,8 @@ type Parser interface {
 	Merge()
 	DrawFunction(baseName string, count int)
 	DrawStruct(baseName string, count int)
+	GetStructCodeSnippet(baseName string) map[string]string
+	GetFunctionCodeSnippet(baseName string) map[string]string
 	Inspect(file string) error
 	Relation() map[string][]string
 }
@@ -24,19 +26,6 @@ func NewParser(projectPath string) Parser {
 		allStructs: make(map[string]*StructNode, 0),
 		knownModuleFunction: make(map[string]bool, 0),
 	}
-}
-
-func getKeyStructType(fieldType string, structType string) string {
-	// 除去chan的影响
-	if strings.HasPrefix(fieldType, "chan") {
-		fieldType = fieldType[len("chan"):]
-	}
-
-	fieldType = strings.ReplaceAll(fieldType, " ", "")
-	if strings.HasPrefix(fieldType, "map") && strings.Contains(fieldType, "["+structType+"]") || strings.Contains(fieldType, "[*"+structType+"]") {
-		return structType
-	}
-	return ""
 }
 
 func getStructType(fieldType string, structType string) string {

@@ -26,6 +26,46 @@ type NodeManager struct {
 	knownModuleFunction map[string]bool
 }
 
+func (n *NodeManager) GetStructCodeSnippet(baseName string) map[string]string {
+	fmt.Printf("%+v\n", n.allStructs)
+	fmt.Printf("%s\n", baseName)
+	structNode, ok := n.allStructs[baseName]
+	if !ok {
+		return map[string]string{}
+	}
+	return structNode.GetCodeSnippet()
+}
+
+func (n *NodeManager) getMatchedFunction(baseName string) *FunctionNode {
+	var node *FunctionNode
+	elems := strings.Split(baseName, "/")
+	if len(elems) != 3 {
+		return node
+	}
+	packageName, receiver, name := elems[0], elems[1], elems[2]
+	functionNodes, ok := n.allFunctions[name]
+	if !ok {
+		return node
+	}
+
+	for _, functionNode := range functionNodes {
+		if functionNode.fileNode.packageName == packageName && functionNode.receiver == receiver {
+			node = functionNode
+			break
+		}
+	}
+	return node
+}
+
+func (n *NodeManager) GetFunctionCodeSnippet(baseName string) map[string]string {
+	node := n.getMatchedFunction(baseName)
+	if node == nil {
+		return map[string]string{}
+	}
+
+	return node.GetCodeSnippet()
+}
+
 func (n *NodeManager) Relation() map[string][]string {
 	relation := make(map[string][]string, 0)
 	relation["functions"] = make([]string, 0)
@@ -101,30 +141,15 @@ func (n *NodeManager) getBaseDir() string {
 }
 
 func (n *NodeManager) DrawFunction(baseFunction string, count int) {
-	elems := strings.Split(baseFunction, "/")
-	if len(elems) != 3 {
+	node := n.getMatchedFunction(baseFunction)
+	if node == nil {
 		return
-	}
-	packageName, receiver, name := elems[0], elems[1], elems[2]
-	functionNodes, ok := n.allFunctions[name]
-	if !ok {
-		return
-	}
-
-	var node *FunctionNode
-	for _, functionNode := range functionNodes {
-		if functionNode.fileNode.packageName == packageName && functionNode.receiver == receiver {
-			node = functionNode
-			break
-		}
 	}
 
 	content := bytes.NewBuffer([]byte{})
 	content.WriteString("digraph gph {")
 
-	if node == nil {
-		return
-	}
+
 
 	record := make(map[string]bool, 0)
 	node.DrawNode(content, record, count)
@@ -278,7 +303,12 @@ func (n *NodeManager) Inspect(file string) error {
 				fields[typeInSource] = typeInSource
 			}
 		}
-		structNode := NewStructNode(fileParser, t.Name.Name, fields)
+
+		i := x.Pos()
+		for content[i] != '\n'  && i >= 0 {
+			i--
+		}
+		structNode := NewStructNode(fileParser, t.Name.Name, string(content)[i + 1: x.End()], fields)
 
 		fileParser.structNodes[structNode.name] = structNode
 		return true
@@ -310,11 +340,11 @@ func (n *NodeManager) Inspect(file string) error {
 				}
 			}
 		}
-		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, methods)
+		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, string(content[t.Pos() - 1: t.End()]), methods)
 		fileParser.interfaceNodes[t.Name.Name] = interfaceNode
 
 		for name, _ := range methods {
-			functionNode := NewFunctionNode(fileParser, name, t.Name.Name, "", []string{},  []string{})
+			functionNode := NewFunctionNode(fileParser, name, t.Name.Name,  string(content[t.Pos() - 1: t.End()]), []string{},  []string{})
 			if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
 				fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
 			}
@@ -361,8 +391,8 @@ func (n *NodeManager) Inspect(file string) error {
 			}
 		}
 
-		body := string(content)[int(x.Body.Lbrace)-1 : int(x.Body.Rbrace)]
-		functionNode := NewFunctionNode(fileParser, x.Name.Name, receiver, body, parameters, returns)
+		//content := string(content)[int(x.Body.Lbrace)-1 : int(x.Body.Rbrace)]
+		functionNode := NewFunctionNode(fileParser, x.Name.Name,  receiver, string(content[x.Pos() - 1: x.End()]), parameters, returns)
 		if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
 			fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
 		}

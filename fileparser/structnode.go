@@ -9,15 +9,17 @@ import (
 type StructNode struct {
 	fileNode      *FileNode
 	name          string
+	content string
 	fields        map[string]string
 	complexStructFields map[string]*StructNode
 	complexInterfaceFields map[string]*InterfaceNode
 }
 
-func NewStructNode(fileNode *FileNode, name string, fields map[string]string) *StructNode {
+func NewStructNode(fileNode *FileNode, name string, content string, fields map[string]string) *StructNode {
 	return &StructNode{
 		fileNode:      fileNode,
 		name:          name,
+		content: content,
 		fields:        fields,
 		complexStructFields: make(map[string]*StructNode, 0),
 		complexInterfaceFields: make(map[string]*InterfaceNode, 0),
@@ -64,6 +66,25 @@ func (s *StructNode) Merge(structTypes map[string]map[string]*StructNode, interf
 			}
 		}
 	}
+}
+
+func (s *StructNode) GetCodeSnippet() map[string]string {
+	result := make(map[string]string, 0)
+	result[s.getIdentity()] = s.content
+	for _, node := range s.complexInterfaceFields {
+		result[node.getIdentity()] = node.content
+	}
+
+	for _, node := range s.complexStructFields {
+		if _, ok := result[node.getIdentity()]; ok == false {
+			result[node.getIdentity()] = node.content
+			tmp := node.GetCodeSnippet()
+			for k, v := range tmp {
+				result[k] = v
+			}
+		}
+	}
+	return result
 }
 
 func (s *StructNode) getIdentity() string {

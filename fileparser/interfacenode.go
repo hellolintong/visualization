@@ -8,14 +8,16 @@ import (
 type InterfaceNode struct {
 	fileNode        *FileNode
 	name            string
+	content 		string
 	implementStruct map[string]bool
 	methods         map[string]string
 }
 
-func NewInterfaceNode(fileNode *FileNode, name string, methods map[string]string) *InterfaceNode {
+func NewInterfaceNode(fileNode *FileNode, name string, content string, methods map[string]string) *InterfaceNode {
 	return &InterfaceNode{
 		fileNode:        fileNode,
 		name:            name,
+		content:  		 content,
 		implementStruct: make(map[string]bool, 0),
 		methods:         methods,
 	}
