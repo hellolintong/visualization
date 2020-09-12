@@ -116,10 +116,10 @@ func (s *FunctionNode) Deduce() {
 					}
 				}
 				if found == false {
-					//if len(nodes) == 1 && s.fileNode.nodeManager.knownModuleFunction[nodes[0].name] == true {
-					//	s.callee[nodes[0].getIdentity()] = nodes[0]
-					//	break
-					//}
+					if len(nodes) == 1 {
+						s.callee[nodes[0].getIdentity()] = nodes[0]
+						break
+					}
 					//// 优先找同一个模块里面的
 					//fmt.Println(s.fileNode.file)
 					//fmt.Println(s.getIdentity())

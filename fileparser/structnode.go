@@ -32,7 +32,7 @@ func (s *StructNode) Merge(structTypes map[string]map[string]*StructNode, interf
 	for name, t := range s.fields {
 		if strings.Contains(t, "map[") {
 			index1 := strings.Index(t, "map[")
-			index2 := strings.Index(t[index1:], "]")
+			index2 := strings.Index(t[index1:], "]") + index1
 			t2 := t[index1 + 4: index2]
 			t3 := t[index2 + 1: ]
 			finalStructType, finalInterfaceType := typeCompare(structTypes, interfaceNames, t2)
