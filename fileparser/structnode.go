@@ -7,21 +7,21 @@ import (
 )
 
 type StructNode struct {
-	fileNode      *FileNode
-	name          string
-	content string
-	fields        map[string]string
-	complexStructFields map[string]*StructNode
+	fileNode               *FileNode
+	name                   string
+	content                string
+	fields                 map[string]string
+	complexStructFields    map[string]*StructNode
 	complexInterfaceFields map[string]*InterfaceNode
 }
 
 func NewStructNode(fileNode *FileNode, name string, content string, fields map[string]string) *StructNode {
 	return &StructNode{
-		fileNode:      fileNode,
-		name:          name,
-		content: content,
-		fields:        fields,
-		complexStructFields: make(map[string]*StructNode, 0),
+		fileNode:               fileNode,
+		name:                   name,
+		content:                content,
+		fields:                 fields,
+		complexStructFields:    make(map[string]*StructNode, 0),
 		complexInterfaceFields: make(map[string]*InterfaceNode, 0),
 	}
 }
@@ -33,8 +33,8 @@ func (s *StructNode) Merge(structTypes map[string]map[string]*StructNode, interf
 		if strings.Contains(t, "map[") {
 			index1 := strings.Index(t, "map[")
 			index2 := strings.Index(t[index1:], "]") + index1
-			t2 := t[index1 + 4: index2]
-			t3 := t[index2 + 1: ]
+			t2 := t[index1+4 : index2]
+			t3 := t[index2+1:]
 			finalStructType, finalInterfaceType := typeCompare(structTypes, interfaceNames, t2)
 
 			if finalStructType != nil {
@@ -107,7 +107,7 @@ func (s *StructNode) DrawNode(content *bytes.Buffer, record map[string]bool, cou
 
 	record[s.getIdentity()] = true
 	count--
-	if count > 0  {
+	if count > 0 {
 		for _, node := range s.complexStructFields {
 			node.DrawNode(content, record, count)
 		}
@@ -124,17 +124,17 @@ func (s *StructNode) DrawRelation(content *bytes.Buffer, record map[string]bool,
 
 	tempRecord := make(map[string]bool, 0)
 	for _, node := range s.complexStructFields {
-			if tempRecord[node.getIdentity()] == false {
-				content.WriteString(fmt.Sprintf("%s -> %s", s.getIdentity(), node.getIdentity()))
-				content.WriteString("\n")
-				tempRecord[node.getIdentity()] = true
-			}
-	}
-	for _, node := range s.complexInterfaceFields {
-		if tempRecord[s.getIdentity() + node.getIdentity()] == false {
+		if tempRecord[node.getIdentity()] == false {
 			content.WriteString(fmt.Sprintf("%s -> %s", s.getIdentity(), node.getIdentity()))
 			content.WriteString("\n")
-			tempRecord[s.getIdentity() + node.getIdentity()] = true
+			tempRecord[node.getIdentity()] = true
+		}
+	}
+	for _, node := range s.complexInterfaceFields {
+		if tempRecord[s.getIdentity()+node.getIdentity()] == false {
+			content.WriteString(fmt.Sprintf("%s -> %s", s.getIdentity(), node.getIdentity()))
+			content.WriteString("\n")
+			tempRecord[s.getIdentity()+node.getIdentity()] = true
 		}
 	}
 	record[s.getIdentity()] = true

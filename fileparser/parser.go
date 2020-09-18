@@ -6,24 +6,27 @@ import (
 
 type Parser interface {
 	Merge()
-	DrawFunction(baseName string, count int)
+	DrawCalleeFunction(baseName string, count int)
+	DrawCallerFunction(baseName string, count int)
 	DrawStruct(baseName string, count int)
 	GetStructCodeSnippet(baseName string) map[string]string
-	GetFunctionCodeSnippet(baseName string) map[string]string
+	GetFunctionCalleeCodeSnippet(baseName string) map[string]string
+	GetFunctionCallerCodeSnippet(baseName string) map[string]string
 	Inspect(file string) error
-	Relation() map[string][]string
+	Relation() map[string]map[string][]string
 }
 
 func NewParser(projectPath string) Parser {
 
 	return &NodeManager{
-		projectPath: projectPath,
-		packages:        make(map[string][]*FileNode, 0),
-		structTypes:     make(map[string]map[string]*StructNode, 0),
-		functionNames:   make(map[string]map[string]bool, 0),
-		interfaceNames:  make(map[string]map[string]*InterfaceNode, 0),
-		allFunctions: make(map[string][]*FunctionNode, 0),
-		allStructs: make(map[string]*StructNode, 0),
+		projectPath:         projectPath,
+		packages:            make(map[string][]*FileNode, 0),
+		structTypes:         make(map[string]map[string]*StructNode, 0),
+		functionNames:       make(map[string]map[string]bool, 0),
+		interfaceNames:      make(map[string]map[string]*InterfaceNode, 0),
+		allFunctions:        make(map[string][]*FunctionNode, 0),
+		allStructs:          make(map[string]*StructNode, 0),
+		allInterfaces:       make(map[string]*InterfaceNode, 0),
 		knownModuleFunction: make(map[string]bool, 0),
 	}
 }
@@ -64,8 +67,8 @@ func typeCompare(structTypes map[string]map[string]*StructNode, interfaceNames m
 			if index != -1 {
 				found := false
 				for i := index; i >= 0; i-- {
-					 if subFieldType[i] == ' ' || subFieldType[i] == '*' || subFieldType[i] == ']' {
-					 	found = true
+					if subFieldType[i] == ' ' || subFieldType[i] == '*' || subFieldType[i] == ']' {
+						found = true
 						packageName = subFieldType[i+1 : index]
 						subFieldType = subFieldType[index+1:]
 						break
@@ -88,11 +91,11 @@ func typeCompare(structTypes map[string]map[string]*StructNode, interfaceNames m
 	var finalInterfaceType *InterfaceNode
 
 	// 如果有包名，就先以包为标准
-	if len(packageName) != 0  {
+	if len(packageName) != 0 {
 		if _, ok := structTypes[packageName]; ok == true {
 			// 找到最合适的匹配点
 			for structType, value := range structTypes[packageName] {
-				tmp := getStructType(fieldType, packageName + "." + structType)
+				tmp := getStructType(fieldType, packageName+"."+structType)
 				if len(tmp) > len(finalStructTypeStr) {
 					finalStructTypeStr = tmp
 					finalStructType = value
@@ -102,7 +105,7 @@ func typeCompare(structTypes map[string]map[string]*StructNode, interfaceNames m
 
 		if _, ok := interfaceNames[packageName]; ok == true {
 			for structType, value := range interfaceNames[packageName] {
-				tmp := getStructType(fieldType, packageName + "." + structType)
+				tmp := getStructType(fieldType, packageName+"."+structType)
 				if len(tmp) > len(finalStructTypeStr) {
 					finalStructTypeStr = tmp
 					finalInterfaceType = value

@@ -16,7 +16,7 @@ type FileNode struct {
 	structNodes     map[string]*StructNode
 	interfaceNodes  map[string]*InterfaceNode
 	functionNodes   map[string][]*FunctionNode
-	importers map[string]string
+	importers       map[string]string
 }
 
 func (f *FileNode) MergeFunction() {
@@ -28,20 +28,11 @@ func (f *FileNode) MergeFunction() {
 	}
 }
 
-//func (f *FileNode) DeduceFunction() {
-//	for _, functionNodes := range f.functionNodes {
-//		for _, functionNode := range functionNodes {
-//			functionNode.Deduce()
-//		}
-//	}
-//}
-
 func (f *FileNode) MergeStruct(structTypes map[string]map[string]*StructNode, interfaceNames map[string]map[string]*InterfaceNode) {
 	for _, structNode := range f.structNodes {
 		structNode.Merge(structTypes, interfaceNames)
 	}
 }
-
 
 func NewFileNode(nodeManager *NodeManager, file string, packageName string) *FileNode {
 	return &FileNode{
@@ -53,7 +44,7 @@ func NewFileNode(nodeManager *NodeManager, file string, packageName string) *Fil
 		structNodes:     make(map[string]*StructNode, 0),
 		interfaceNodes:  make(map[string]*InterfaceNode, 0),
 		functionNodes:   make(map[string][]*FunctionNode, 0),
-		importers: make(map[string]string, 0),
+		importers:       make(map[string]string, 0),
 	}
 }
 

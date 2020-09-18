@@ -13,6 +13,7 @@ type FunctionNode struct {
 	parameters []string
 	returns    []string
 	callee     map[string]*FunctionNode
+	caller     map[string]*FunctionNode
 	content    string
 }
 
@@ -28,6 +29,7 @@ func NewFunctionNode(fileNode *FileNode, name string, receiver string, content s
 		receiver:   receiver,
 		content:    content,
 		callee:     make(map[string]*FunctionNode, 0),
+		caller:     make(map[string]*FunctionNode, 0),
 		parameters: params,
 		returns:    returns,
 	}
@@ -42,18 +44,18 @@ func (s *FunctionNode) Merge() {
 }
 
 func (s *FunctionNode) getIdentity() string {
-	return "\""+ s.fileNode.packageName + "/" + s.receiver + "/" + s.name + "\""
+	return "\"" + s.fileNode.packageName + "/" + s.receiver + "/" + s.name + "\""
 }
 
-func (s *FunctionNode) GetCodeSnippet() map[string]string {
-	s.Deduce()
+func (s *FunctionNode) GetCalleeCodeSnippet() map[string]string {
+	s.deduceCallee()
 	result := make(map[string]string, 0)
 	result[s.getIdentity()] = s.content
 
 	for _, callee := range s.callee {
 		if _, ok := result[callee.getIdentity()]; ok == false {
 			result[callee.getIdentity()] = callee.content
-			tmp := callee.GetCodeSnippet()
+			tmp := callee.GetCalleeCodeSnippet()
 			for k, v := range tmp {
 				result[k] = v
 			}
@@ -63,7 +65,39 @@ func (s *FunctionNode) GetCodeSnippet() map[string]string {
 	return result
 }
 
-func (s *FunctionNode) Deduce() {
+func (s *FunctionNode) GetCallerCodeSnippet() map[string]string {
+	s.deduceCaller()
+	result := make(map[string]string, 0)
+	result[s.getIdentity()] = s.content
+
+	for _, caller := range s.caller {
+		if _, ok := result[caller.getIdentity()]; ok == false {
+			result[caller.getIdentity()] = caller.content
+			tmp := caller.GetCallerCodeSnippet()
+			for k, v := range tmp {
+				result[k] = v
+			}
+		}
+	}
+
+	return result
+}
+
+// 查找函数的调用者
+func (s *FunctionNode) deduceCaller() {
+	for _, nodes := range s.fileNode.nodeManager.allFunctions {
+		for _, node := range nodes {
+			if node.getIdentity() == s.getIdentity() {
+				continue
+			}
+			if strings.Contains(node.content, "."+s.name+"(") || strings.Contains(node.content, " "+s.name+"(") {
+				s.caller[node.getIdentity()] = node
+			}
+		}
+	}
+}
+
+func (s *FunctionNode) deduceCallee() {
 	nodeManager := s.fileNode.nodeManager
 	lines := strings.Split(s.content, "\n")
 	// 跳过自己
@@ -81,14 +115,14 @@ func (s *FunctionNode) Deduce() {
 
 		// 遍历全部现有的函数，查看是否存在调用关系
 		for functionName, nodes := range nodeManager.allFunctions {
-			if strings.Contains(line, " " + functionName+"(") {
+			if strings.Contains(line, " "+functionName+"(") {
 				for _, node := range nodes {
 					if node.fileNode.packageName == s.fileNode.packageName && node.receiver == "" {
 						s.callee[node.getIdentity()] = node
 					}
 				}
-			} else if strings.Contains(line, "." + functionName+"(") {
-				pos := strings.Index(line, "." + functionName+"(") - 1
+			} else if strings.Contains(line, "."+functionName+"(") {
+				pos := strings.Index(line, "."+functionName+"(") - 1
 				tmp := bytes.NewBuffer([]byte{})
 				for pos >= 0 && line[pos] != ' ' {
 					tmp.WriteByte(line[pos])
@@ -98,7 +132,7 @@ func (s *FunctionNode) Deduce() {
 				found := false
 				// 是否在模块中
 				name := tmp.String()
-				if _, ok  := s.fileNode.importers[name]; ok {
+				if _, ok := s.fileNode.importers[name]; ok {
 					for _, node := range nodes {
 						if node.fileNode.packageName == name {
 							s.callee[node.getIdentity()] = node
@@ -143,31 +177,68 @@ func (s *FunctionNode) Deduce() {
 	}
 }
 
-
-func (s *FunctionNode) DrawNode(content *bytes.Buffer, record map[string]bool, count int) {
-	s.Deduce()
+func (s *FunctionNode) DrawCallerNode(content *bytes.Buffer, record map[string]bool, count int) {
+	s.deduceCaller()
 	content.WriteString("\n")
-	content.WriteString(fmt.Sprintf("%s [label=%s, shape=\"box\"];",  s.getIdentity(), s.getIdentity()))
+	content.WriteString(fmt.Sprintf("%s [label=%s, shape=\"box\"];", s.getIdentity(), s.getIdentity()))
 
 	record[s.getIdentity()] = true
 	count--
 
 	if count > 0 {
 		for _, callee := range s.callee {
-			callee.DrawNode(content, record, count)
+			callee.DrawCallerNode(content, record, count)
 		}
 	}
 }
 
-func (s *FunctionNode) DrawRelation(content *bytes.Buffer, record map[string]bool, count int) {
+func (s *FunctionNode) DrawCallerRelation(content *bytes.Buffer, record map[string]bool, count int) {
+	tempRecord := make(map[string]bool, 0)
+
+	for _, caller := range s.caller {
+		if tempRecord[caller.getIdentity()] == false {
+			content.WriteString(fmt.Sprintf("%s->%s;", caller.getIdentity(), s.getIdentity()))
+			content.WriteString("\n")
+			tempRecord[caller.getIdentity()] = true
+		}
+	}
+
+	count--
+
+	record[s.getIdentity()] = true
+	if count > 0 {
+		for _, caller := range s.caller {
+			if record[caller.getIdentity()] == false {
+				caller.DrawCallerRelation(content, record, count)
+			}
+		}
+	}
+}
+
+func (s *FunctionNode) DrawCalleeNode(content *bytes.Buffer, record map[string]bool, count int) {
+	s.deduceCallee()
+	content.WriteString("\n")
+	content.WriteString(fmt.Sprintf("%s [label=%s, shape=\"box\"];", s.getIdentity(), s.getIdentity()))
+
+	record[s.getIdentity()] = true
+	count--
+
+	if count > 0 {
+		for _, callee := range s.callee {
+			callee.DrawCalleeNode(content, record, count)
+		}
+	}
+}
+
+func (s *FunctionNode) DrawCalleeRelation(content *bytes.Buffer, record map[string]bool, count int) {
 	tempRecord := make(map[string]bool, 0)
 
 	for _, callee := range s.callee {
-			if tempRecord[callee.getIdentity()] == false {
-				content.WriteString(fmt.Sprintf("%s->%s;", s.getIdentity(), callee.getIdentity()))
-				content.WriteString("\n")
-				tempRecord[callee.getIdentity()] = true
-			}
+		if tempRecord[callee.getIdentity()] == false {
+			content.WriteString(fmt.Sprintf("%s->%s;", s.getIdentity(), callee.getIdentity()))
+			content.WriteString("\n")
+			tempRecord[callee.getIdentity()] = true
+		}
 	}
 
 	count--
@@ -176,9 +247,8 @@ func (s *FunctionNode) DrawRelation(content *bytes.Buffer, record map[string]boo
 	if count > 0 {
 		for _, callee := range s.callee {
 			if record[callee.getIdentity()] == false {
-				callee.DrawRelation(content, record, count)
+				callee.DrawCalleeRelation(content, record, count)
 			}
 		}
 	}
 }
-

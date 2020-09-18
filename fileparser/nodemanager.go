@@ -8,23 +8,24 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
 type NodeManager struct {
-	projectPath string
-	packages        map[string][]*FileNode
-	structTypes     map[string]map[string]*StructNode
-	functionNames   map[string]map[string]bool
-	interfaceNames  map[string]map[string]*InterfaceNode
-	allFunctions    map[string][]*FunctionNode
-	allStructs    	map[string]*StructNode
+	projectPath         string
+	packages            map[string][]*FileNode
+	structTypes         map[string]map[string]*StructNode
+	functionNames       map[string]map[string]bool
+	interfaceNames      map[string]map[string]*InterfaceNode
+	allFunctions        map[string][]*FunctionNode
+	allStructs          map[string]*StructNode
+	allInterfaces       map[string]*InterfaceNode
 	knownModuleFunction map[string]bool
 }
+
+
 
 func (n *NodeManager) GetStructCodeSnippet(baseName string) map[string]string {
 	structNode, ok := n.allStructs[baseName]
@@ -55,31 +56,92 @@ func (n *NodeManager) getMatchedFunction(baseName string) *FunctionNode {
 	return node
 }
 
-func (n *NodeManager) GetFunctionCodeSnippet(baseName string) map[string]string {
+func (n *NodeManager) GetFunctionCallerCodeSnippet(baseName string) map[string]string {
 	node := n.getMatchedFunction(baseName)
 	if node == nil {
 		return map[string]string{}
 	}
 
-	return node.GetCodeSnippet()
+	return node.GetCallerCodeSnippet()
 }
 
-func (n *NodeManager) Relation() map[string][]string {
-	relation := make(map[string][]string, 0)
-	relation["functions"] = make([]string, 0)
+func (n *NodeManager) GetFunctionCalleeCodeSnippet(baseName string) map[string]string {
+	node := n.getMatchedFunction(baseName)
+	if node == nil {
+		return map[string]string{}
+	}
+
+	return node.GetCalleeCodeSnippet()
+}
+
+
+
+// map[module]map[struct][]functions
+func (n *NodeManager) Relation() map[string]map[string][]string {
+	projectInternalRelation := make(map[string]map[string][]string , 0)
+
 	for _, nodes := range n.allFunctions {
 		for _, node := range nodes {
-			relation["functions"] = append(relation["functions"], strings.Trim(node.getIdentity(), "\""))
+			elems := strings.Split(strings.Trim(node.getIdentity(), "\""), "/")
+			if len(elems) != 3 {
+				Log.Sugar().Errorf("invalid identity:%+v", *node)
+				continue
+			}
+			moduleName := elems[0]
+			structName := elems[1]
+			functionName := elems[2]
+			if _, ok := projectInternalRelation[moduleName]; !ok {
+				projectInternalRelation[moduleName] = make(map[string][]string, 0)
+			}
+
+			if _, ok := projectInternalRelation[moduleName][structName]; !ok {
+				projectInternalRelation[moduleName][structName] = make([]string, 0)
+			}
+
+			projectInternalRelation[moduleName][structName] =
+				append(projectInternalRelation[moduleName][structName], functionName)
 		}
 	}
-	sort.Strings(relation["functions"])
 
-	relation["structs"] = make([]string, 0)
 	for _, node := range n.allStructs {
-			relation["structs"] = append(relation["structs"], strings.Trim(node.getIdentity(), "\""))
+		elems := strings.Split(strings.Trim(node.getIdentity(), "\""), "/")
+		if len(elems) != 2 {
+			Log.Sugar().Errorf("invalid identity:%s", node.getIdentity())
+			continue
+		}
+
+		moduleName := elems[0]
+		structName := elems[1]
+
+		if _, ok := projectInternalRelation[moduleName]; !ok {
+			projectInternalRelation[moduleName] = make(map[string][]string, 0)
+		}
+
+		if _, ok := projectInternalRelation[moduleName][structName]; !ok {
+			projectInternalRelation[moduleName][structName] = make([]string, 0)
+		}
 	}
-	sort.Strings(relation["structs"])
-	return relation
+
+	for _, node := range n.allInterfaces {
+		elems := strings.Split(strings.Trim(node.getIdentity(), "\""), "/")
+		if len(elems) != 2 {
+			Log.Sugar().Errorf("invalid identity:%s", node.getIdentity())
+			continue
+		}
+
+		moduleName := elems[0]
+		interfaceName := elems[1]
+
+		if _, ok := projectInternalRelation[moduleName]; !ok {
+			projectInternalRelation[moduleName] = make(map[string][]string, 0)
+		}
+
+		if _, ok := projectInternalRelation[moduleName][interfaceName]; !ok {
+			projectInternalRelation[moduleName][interfaceName] = make([]string, 0)
+		}
+	}
+
+	return projectInternalRelation
 }
 
 func (n *NodeManager) getStructReceiverLabel(receiver string) string {
@@ -110,7 +172,6 @@ func (n *NodeManager) DrawStruct(baseStruct string, count int) {
 	record = make(map[string]bool, 0)
 	structNode.DrawRelation(content, record, count)
 
-
 	content.WriteString("}")
 
 	os.MkdirAll(n.getBaseDir(), 0755)
@@ -118,27 +179,27 @@ func (n *NodeManager) DrawStruct(baseStruct string, count int) {
 	baseStruct = strings.ReplaceAll(baseStruct, "/", "_")
 	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/struct_%s.dot", baseStruct), content.Bytes(), 0644); err == nil {
 		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/struct_%s.dot -o %s/struct_%s.png -Tpng", n.getBaseDir(), baseStruct, n.getBaseDir(), baseStruct)).Run(); err == nil {
-			log.Println("draw success!")
+			Log.Sugar().Infof("draw success!")
 		} else {
-			log.Printf("draw visualization.dot fail, error:%s", err.Error())
+			Log.Sugar().Errorf("draw visualization.dot fail, error:%s", err.Error())
 		}
 	} else {
-		log.Printf("write visualization.dot fail, error:%s", err.Error())
+		Log.Sugar().Errorf("write visualization.dot fail, error:%s", err.Error())
 	}
 }
 
 func (n *NodeManager) getBaseDir() string {
 	path, err := os.Getwd()
 	if err != nil {
-		log.Println(err)
+		Log.Sugar().Error(err)
 		return "."
 	}
 	projectName := filepath.Base(n.projectPath)
-	baseDir := 	path+"/resource/"+projectName
+	baseDir := path + "/resource/" + projectName
 	return baseDir
 }
 
-func (n *NodeManager) DrawFunction(baseFunction string, count int) {
+func (n *NodeManager) DrawCallerFunction(baseFunction string, count int) {
 	node := n.getMatchedFunction(baseFunction)
 	if node == nil {
 		return
@@ -147,28 +208,58 @@ func (n *NodeManager) DrawFunction(baseFunction string, count int) {
 	content := bytes.NewBuffer([]byte{})
 	content.WriteString("digraph gph {")
 
-
-
 	record := make(map[string]bool, 0)
-	node.DrawNode(content, record, count)
+	node.DrawCallerNode(content, record, count)
 
 	record = make(map[string]bool, 0)
-	node.DrawRelation(content, record, count)
+	node.DrawCallerRelation(content, record, count)
 
 	content.WriteString("}")
 
 	os.MkdirAll(n.getBaseDir(), 0755)
 
 	baseFunction = strings.ReplaceAll(baseFunction, "/", "_")
-	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/function_%s.dot", baseFunction), content.Bytes(), 0644); err == nil {
-		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/function_%s.dot -o %s/function_%s.png -Tpng", n.getBaseDir(), baseFunction,
+	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/function_caller_%s.dot", baseFunction), content.Bytes(), 0644); err == nil {
+		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/function_caller_%s.dot -o %s/function_caller_%s.png -Tpng", n.getBaseDir(), baseFunction,
 			n.getBaseDir(), baseFunction)).Run(); err == nil {
-			log.Println("draw success!")
+			Log.Sugar().Infof("draw success!")
 		} else {
-			log.Printf("draw visualization.dot fail, error:%s", err.Error())
+			Log.Sugar().Errorf("draw visualization.dot fail, error:%s", err.Error())
 		}
 	} else {
-		log.Printf("write visualization.dot fail, error:%s", err.Error())
+		Log.Sugar().Errorf("write visualization.dot fail, error:%s", err.Error())
+	}
+}
+
+func (n *NodeManager) DrawCalleeFunction(baseFunction string, count int) {
+	node := n.getMatchedFunction(baseFunction)
+	if node == nil {
+		return
+	}
+
+	content := bytes.NewBuffer([]byte{})
+	content.WriteString("digraph gph {")
+
+	record := make(map[string]bool, 0)
+	node.DrawCalleeNode(content, record, count)
+
+	record = make(map[string]bool, 0)
+	node.DrawCalleeRelation(content, record, count)
+
+	content.WriteString("}")
+
+	os.MkdirAll(n.getBaseDir(), 0755)
+
+	baseFunction = strings.ReplaceAll(baseFunction, "/", "_")
+	if err := ioutil.WriteFile(fmt.Sprintf(n.getBaseDir()+"/function_callee_%s.dot", baseFunction), content.Bytes(), 0644); err == nil {
+		if err = sh.Command("/bin/bash", "-c", fmt.Sprintf("dot %s/function_callee_%s.dot -o %s/function_callee_%s.png -Tpng", n.getBaseDir(), baseFunction,
+			n.getBaseDir(), baseFunction)).Run(); err == nil {
+			Log.Sugar().Infof("draw success!")
+		} else {
+			Log.Sugar().Errorf("draw visualization.dot fail, error:%s", err.Error())
+		}
+	} else {
+		Log.Sugar().Errorf("write visualization.dot fail, error:%s", err.Error())
 	}
 }
 
@@ -210,7 +301,6 @@ func (n *NodeManager) mergeStruct() {
 		}
 	}
 
-
 	// package
 	for _, package_ := range n.packages {
 		// file
@@ -240,6 +330,14 @@ func (n *NodeManager) mergeStruct() {
 		}
 	}
 
+	for _, package_ := range n.packages {
+		for _, filenode := range package_ {
+			for _, interfaceNode := range filenode.interfaceNodes {
+				n.allInterfaces[interfaceNode.getIdentity()] = interfaceNode
+			}
+		}
+	}
+
 }
 
 func (n *NodeManager) Merge() {
@@ -258,13 +356,13 @@ func (n *NodeManager) Inspect(file string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 	if err != nil {
-		log.Printf("can't parse file:%s, error:%s", file, err.Error())
+		Log.Sugar().Errorf("can't parse file:%s, error:%s", file, err.Error())
 		return err
 	}
 
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Printf("can't read file:%s content, error:%s", file, err.Error())
+		Log.Sugar().Errorf("can't read file:%s content, error:%s", file, err.Error())
 		return err
 	}
 
@@ -303,10 +401,10 @@ func (n *NodeManager) Inspect(file string) error {
 		}
 
 		i := x.Pos()
-		for content[i] != '\n'  && i >= 0 {
+		for content[i] != '\n' && i >= 0 {
 			i--
 		}
-		structNode := NewStructNode(fileParser, t.Name.Name, string(content)[i + 1: x.End()], fields)
+		structNode := NewStructNode(fileParser, t.Name.Name, string(content)[i+1:x.End()], fields)
 
 		fileParser.structNodes[structNode.name] = structNode
 		return true
@@ -332,17 +430,18 @@ func (n *NodeManager) Inspect(file string) error {
 			functions := strings.Split(string(content[x.Methods.Opening:x.Methods.Closing]), "\n")
 			for _, function := range functions {
 				function = strings.Trim(function, "\t")
-				if strings.Contains(function, "(") && strings.Contains(function, ")") {
+				function = strings.TrimSpace(function)
+				if strings.Contains(function, "(") && strings.Contains(function, ")") && !strings.HasPrefix(function, "//") && !strings.HasPrefix(function, "*") && !strings.HasPrefix(function, "/*"){
 					name := strings.Split(function, "(")[0]
 					methods[name] = function
 				}
 			}
 		}
-		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, string(content[t.Pos() - 1: t.End()]), methods)
+		interfaceNode := NewInterfaceNode(fileParser, t.Name.Name, string(content[t.Pos()-1:t.End()]), methods)
 		fileParser.interfaceNodes[t.Name.Name] = interfaceNode
 
 		for name, _ := range methods {
-			functionNode := NewFunctionNode(fileParser, name, t.Name.Name,  string(content[t.Pos() - 1: t.End()]), []string{},  []string{})
+			functionNode := NewFunctionNode(fileParser, name, t.Name.Name, string(content[t.Pos()-1:t.End()]), []string{}, []string{})
 			if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
 				fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
 			}
@@ -389,8 +488,7 @@ func (n *NodeManager) Inspect(file string) error {
 			}
 		}
 
-		//content := string(content)[int(x.Body.Lbrace)-1 : int(x.Body.Rbrace)]
-		functionNode := NewFunctionNode(fileParser, x.Name.Name,  receiver, string(content[x.Pos() - 1: x.End()]), parameters, returns)
+		functionNode := NewFunctionNode(fileParser, x.Name.Name, receiver, string(content[x.Pos()-1:x.End()]), parameters, returns)
 		if _, ok := fileParser.functionNodes[functionNode.name]; ok == false {
 			fileParser.functionNodes[functionNode.name] = make([]*FunctionNode, 0)
 		}
@@ -411,7 +509,7 @@ func (n *NodeManager) Inspect(file string) error {
 			if len(elems) == 1 {
 				name = x.Path.Value
 			} else {
-				name = elems[len(elems) - 1]
+				name = elems[len(elems)-1]
 			}
 			fileParser.importers[name] = x.Path.Value
 		}

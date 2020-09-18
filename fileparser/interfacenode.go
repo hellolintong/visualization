@@ -8,7 +8,7 @@ import (
 type InterfaceNode struct {
 	fileNode        *FileNode
 	name            string
-	content 		string
+	content         string
 	implementStruct map[string]bool
 	methods         map[string]string
 }
@@ -17,7 +17,7 @@ func NewInterfaceNode(fileNode *FileNode, name string, content string, methods m
 	return &InterfaceNode{
 		fileNode:        fileNode,
 		name:            name,
-		content:  		 content,
+		content:         content,
 		implementStruct: make(map[string]bool, 0),
 		methods:         methods,
 	}
@@ -57,4 +57,3 @@ func (i *InterfaceNode) DrawNode(content *bytes.Buffer, record map[string]bool) 
 	content.WriteString("\n")
 	record[i.getIdentity()] = true
 }
-

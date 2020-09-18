@@ -42,7 +42,6 @@ func visit(path string, deep int) ([]string, error) {
 	return files, nil
 }
 
-
 func NewParser(path string) (fileparser.Parser, error) {
 	files, err := visit(path, 0)
 	if err != nil {
@@ -61,4 +60,3 @@ func NewParser(path string) (fileparser.Parser, error) {
 	nodeManager.Merge()
 	return nodeManager, nil
 }
-
