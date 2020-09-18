@@ -62,7 +62,8 @@ func (n *NodeManager) GetFunctionCallerCodeSnippet(baseName string) map[string]s
 		return map[string]string{}
 	}
 
-	return node.GetCallerCodeSnippet()
+	result := make(map[string]string, 0)
+	return node.GetCallerCodeSnippet(result)
 }
 
 func (n *NodeManager) GetFunctionCalleeCodeSnippet(baseName string) map[string]string {
@@ -71,7 +72,8 @@ func (n *NodeManager) GetFunctionCalleeCodeSnippet(baseName string) map[string]s
 		return map[string]string{}
 	}
 
-	return node.GetCalleeCodeSnippet()
+	result := make(map[string]string, 0)
+	return node.GetCalleeCodeSnippet(result)
 }
 
 

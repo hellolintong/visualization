@@ -47,15 +47,14 @@ func (s *FunctionNode) getIdentity() string {
 	return "\"" + s.fileNode.packageName + "/" + s.receiver + "/" + s.name + "\""
 }
 
-func (s *FunctionNode) GetCalleeCodeSnippet() map[string]string {
+func (s *FunctionNode) GetCalleeCodeSnippet(result map[string]string) map[string]string {
 	s.deduceCallee()
-	result := make(map[string]string, 0)
 	result[s.getIdentity()] = s.content
 
 	for _, callee := range s.callee {
 		if _, ok := result[callee.getIdentity()]; ok == false {
 			result[callee.getIdentity()] = callee.content
-			tmp := callee.GetCalleeCodeSnippet()
+			tmp := callee.GetCalleeCodeSnippet(result)
 			for k, v := range tmp {
 				result[k] = v
 			}
@@ -65,15 +64,13 @@ func (s *FunctionNode) GetCalleeCodeSnippet() map[string]string {
 	return result
 }
 
-func (s *FunctionNode) GetCallerCodeSnippet() map[string]string {
+func (s *FunctionNode) GetCallerCodeSnippet(result map[string]string) map[string]string {
 	s.deduceCaller()
-	result := make(map[string]string, 0)
 	result[s.getIdentity()] = s.content
-
 	for _, caller := range s.caller {
 		if _, ok := result[caller.getIdentity()]; ok == false {
 			result[caller.getIdentity()] = caller.content
-			tmp := caller.GetCallerCodeSnippet()
+			tmp := caller.GetCallerCodeSnippet(result)
 			for k, v := range tmp {
 				result[k] = v
 			}
