@@ -87,21 +87,129 @@ func (s *FunctionNode) deduceCaller() {
 			if node.getIdentity() == s.getIdentity() {
 				continue
 			}
-			if strings.Contains(node.content, "."+s.name+"(") || strings.Contains(node.content, " "+s.name+"(") {
-				s.caller[node.getIdentity()] = node
+			lines := strings.Split(node.content, "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				// 跳过函数头，注释
+				if !strings.HasPrefix(line, "*") && !strings.HasPrefix(line, "func") && !strings.HasPrefix(line, "//") &&
+					!strings.HasPrefix(line, "/*") && (strings.Contains(line, "."+s.name+"(") || strings.Contains(line, " "+s.name+"("))  {
+					node2 := node.checkCallerInvolved(line, s)
+					if node2 != nil && node2 == s {
+						s.caller[node.getIdentity()] = node
+					}
+				}
 			}
 		}
 	}
 }
 
+func (s *FunctionNode) checkCallerInvolved(line string, node *FunctionNode) *FunctionNode{
+	if strings.Contains(line, " "+node.name+"(") {
+		if node.fileNode.packageName == s.fileNode.packageName && node.receiver == "" {
+			return node
+		}
+	} else if strings.Contains(line, "."+node.name+"(") {
+		pos := strings.Index(line, "."+node.name+"(") - 1
+		tmp := bytes.NewBuffer([]byte{})
+		for pos >= 0 && line[pos] != ' ' {
+			tmp.WriteByte(line[pos])
+			pos -= 1
+		}
+
+		// 是否在模块中
+		name := tmp.String()
+		if _, ok := s.fileNode.importers[name]; ok {
+			if node.fileNode.packageName == name {
+				return node
+			}
+		} else {
+			if node.receiver == s.receiver {
+				return node
+			}
+		}
+
+		//// 优先找同一个模块里面的
+		//fmt.Println(s.fileNode.file)
+		//fmt.Println(s.getIdentity())
+		//fmt.Println(line)
+		//for i, node := range nodes {
+		//	fmt.Printf("node %d: %s\n", i , node.getIdentity())
+		//}
+		//
+		//index := -1
+		//fmt.Println("输入对应的node序号:")
+		//_, _ = fmt.Scanf("%d", &index)
+		//if index >= 0 {
+		//	s.callee[nodes[index].getIdentity()] = nodes[index]
+		//}
+		//if len(nodes) == 1 && unicode.IsLower([]rune(nodes[0].name)[0]) && index == 0{
+		//	s.fileNode.nodeManager.knownModuleFunction[nodes[0].name] = true
+		//}
+	}
+	return nil
+}
+
+func (s *FunctionNode) checkCalleeInvolved(line string, functionName string, nodes []*FunctionNode) *FunctionNode{
+	if strings.Contains(line, " "+functionName+"(") {
+		for _, node := range nodes {
+			if node.fileNode.packageName == s.fileNode.packageName && node.receiver == "" {
+				return node
+			}
+		}
+	} else if strings.Contains(line, "."+functionName+"(") {
+		pos := strings.Index(line, "."+functionName+"(") - 1
+		tmp := bytes.NewBuffer([]byte{})
+		for pos >= 0 && line[pos] != ' ' {
+			tmp.WriteByte(line[pos])
+			pos -= 1
+		}
+
+		// 是否在模块中
+		name := tmp.String()
+		if _, ok := s.fileNode.importers[name]; ok {
+			for _, node := range nodes {
+				if node.fileNode.packageName == name {
+					return node
+				}
+			}
+		} else {
+			for _, node := range nodes {
+				if node.receiver == s.receiver {
+					return node
+				}
+			}
+		}
+		if len(nodes) == 1 {
+			return nodes[0]
+		}
+		//// 优先找同一个模块里面的
+		//fmt.Println(s.fileNode.file)
+		//fmt.Println(s.getIdentity())
+		//fmt.Println(line)
+		//for i, node := range nodes {
+		//	fmt.Printf("node %d: %s\n", i , node.getIdentity())
+		//}
+		//
+		//index := -1
+		//fmt.Println("输入对应的node序号:")
+		//_, _ = fmt.Scanf("%d", &index)
+		//if index >= 0 {
+		//	s.callee[nodes[index].getIdentity()] = nodes[index]
+		//}
+		//if len(nodes) == 1 && unicode.IsLower([]rune(nodes[0].name)[0]) && index == 0{
+		//	s.fileNode.nodeManager.knownModuleFunction[nodes[0].name] = true
+		//}
+	}
+	return nil
+}
+
 func (s *FunctionNode) deduceCallee() {
-	nodeManager := s.fileNode.nodeManager
 	lines := strings.Split(s.content, "\n")
 	// 跳过自己
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		// 跳过注释
-		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
+		if strings.HasPrefix(line, "func") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
 			continue
 		}
 
@@ -109,66 +217,12 @@ func (s *FunctionNode) deduceCallee() {
 		if strings.Contains(line, s.name+"(") {
 			continue
 		}
-
-		// 遍历全部现有的函数，查看是否存在调用关系
+		nodeManager := s.fileNode.nodeManager
 		for functionName, nodes := range nodeManager.allFunctions {
-			if strings.Contains(line, " "+functionName+"(") {
-				for _, node := range nodes {
-					if node.fileNode.packageName == s.fileNode.packageName && node.receiver == "" {
-						s.callee[node.getIdentity()] = node
-					}
-				}
-			} else if strings.Contains(line, "."+functionName+"(") {
-				pos := strings.Index(line, "."+functionName+"(") - 1
-				tmp := bytes.NewBuffer([]byte{})
-				for pos >= 0 && line[pos] != ' ' {
-					tmp.WriteByte(line[pos])
-					pos -= 1
-				}
-
-				found := false
-				// 是否在模块中
-				name := tmp.String()
-				if _, ok := s.fileNode.importers[name]; ok {
-					for _, node := range nodes {
-						if node.fileNode.packageName == name {
-							s.callee[node.getIdentity()] = node
-							found = true
-							break
-						}
-					}
-				} else {
-					for _, node := range nodes {
-						if node.receiver == s.receiver {
-							s.callee[node.getIdentity()] = node
-							found = true
-							break
-						}
-					}
-				}
-				if found == false {
-					if len(nodes) == 1 {
-						s.callee[nodes[0].getIdentity()] = nodes[0]
-						break
-					}
-					//// 优先找同一个模块里面的
-					//fmt.Println(s.fileNode.file)
-					//fmt.Println(s.getIdentity())
-					//fmt.Println(line)
-					//for i, node := range nodes {
-					//	fmt.Printf("node %d: %s\n", i , node.getIdentity())
-					//}
-					//
-					//index := -1
-					//fmt.Println("输入对应的node序号:")
-					//_, _ = fmt.Scanf("%d", &index)
-					//if index >= 0 {
-					//	s.callee[nodes[index].getIdentity()] = nodes[index]
-					//}
-					//if len(nodes) == 1 && unicode.IsLower([]rune(nodes[0].name)[0]) && index == 0{
-					//	s.fileNode.nodeManager.knownModuleFunction[nodes[0].name] = true
-					//}
-				}
+			// 遍历全部现有的函数，查看是否存在调用关系
+			node := s.checkCalleeInvolved(line, functionName, nodes)
+			if node != nil {
+				s.callee[node.getIdentity()] = node
 			}
 		}
 	}
@@ -183,7 +237,7 @@ func (s *FunctionNode) DrawCallerNode(content *bytes.Buffer, record map[string]b
 	count--
 
 	if count > 0 {
-		for _, callee := range s.callee {
+		for _, callee := range s.caller {
 			callee.DrawCallerNode(content, record, count)
 		}
 	}
